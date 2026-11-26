@@ -1,0 +1,9 @@
+{
+  "name": "cloud10-worker-build",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "wrangler": "4.168.0"
+  }
+}
