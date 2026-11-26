@@ -12,7 +12,7 @@ permissions: {}
 
 jobs:
   select:
-    name: Resolve reviewed main build
+    name: Resolve main build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

@@ -1,11 +1,11 @@
 # Release Cloud10 to Cloudflare
 
-Open a pull request against `main`. The **Cloud10 CI** check runs the Node tests, release selection tests, collector handoff checks and Wrangler checks. The branch rules require an up-to-date check and one approving review from someone with write access. Pushing new reviewable changes dismisses the approval. Each successful push build on `main` captures the Worker and browser files together for 90 days.
+Open a pull request against `main`. The **Cloud10 CI** check runs the Node tests, release selection tests, collector handoff checks and Wrangler checks. You can merge your own PR when the branch is up to date and that check passes. Reviewer approval is optional. Each successful push build on `main` captures the Worker and browser files together for 90 days.
 
 ## Choose a release
 
 1. In GitHub, open **Actions → Release to Cloudflare → Run workflow**. Use the `main` branch. Enter a merged PR number such as `#42`, a release tag, or a full 40-character commit SHA.
-2. Open the run. **Resolve reviewed main build** shows the exact commit and links to its CI run. The commit must be on the first-parent history of `main` and have a retained, successful push build. The job awaiting deployment approval displays that same SHA.
+2. Open the run. **Resolve main build** shows the exact commit and links to its CI run. The commit must be on the first-parent history of `main` and have a retained, successful push build. The job awaiting deployment approval displays that same SHA.
 3. Select **Review deployments → production → Approve and deploy**. The workflow checks the archive digest, uploads the version, and reads its immutable Cloudflare Version URL. It checks every exported response against its manifest and verifies the build SHA, D1 health and all four resort dashboards before switching traffic.
 4. The run summary records the Git SHA and the Cloudflare versions serving traffic before and after promotion. The final step checks the public hostname. If promotion is interrupted, check the current deployment in Cloudflare before retrying. Only one production deployment runs at a time.
 
