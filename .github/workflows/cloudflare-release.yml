@@ -74,6 +74,7 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" --output "$archive"
           printf '%s  %s\n' "$DIGEST" "$archive" | sha256sum --check --strict
+          mkdir -p dist/cloudflare-production
           unzip -q "$archive" -d dist/cloudflare-production
       - name: Configure the selected Worker
         env:
@@ -104,9 +105,6 @@ jobs:
           VERSION_ID: ${{ steps.upload.outputs.id }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          deploy/cloudflare-production/node_modules/.bin/wrangler versions deploy "$VERSION_ID@100%" --yes \
-            --config deploy/cloudflare-production/wrangler.jsonc --message "Git $RELEASE_SHA"
-          printf 'Promoted Git `%s` as Cloudflare version `%s` to 100%% of production traffic.\n' "$RELEASE_SHA" "$VERSION_ID" >> "$GITHUB_STEP_SUMMARY"
+        run: bash deploy/cloudflare-production/promote.sh
       - name: Check the public hostname after promotion
         run: python3 deploy/cloudflare-production/verify-live.py https://forecast.cloud10snow.com dist/cloudflare-production/manifest.json "$RUNNER_TEMP/production.json" "$RELEASE_SHA"
