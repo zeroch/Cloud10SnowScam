@@ -27,3 +27,43 @@ export function t(source, ...values) {
 export function modelCountLabel(count) {
   return t(count === 1 ? '{0} model' : '{0} models', count);
 }
+
+// Forecasts and observations stay in their source units until display.
+export let displayUnits = { temperature: 'F', depth: 'in' };
+
+export function setDisplayUnits(preferences) {
+  displayUnits = {
+    temperature: preferences?.temperature === 'C' ? 'C' : 'F',
+    depth: preferences?.depth === 'cm' ? 'cm' : 'in',
+  };
+}
+
+export function convertWeather(value, sourceUnit) {
+  if (!Number.isFinite(value)) return value;
+  if (sourceUnit === '°F' && displayUnits.temperature === 'C') return (value - 32) * 5 / 9;
+  if (sourceUnit === 'in' && displayUnits.depth === 'cm') return value * 2.54;
+  return value;
+}
+
+export function weatherUnit(sourceUnit) {
+  if (sourceUnit === '°F') return '°' + displayUnits.temperature;
+  return t(sourceUnit === 'in' ? displayUnits.depth : sourceUnit);
+}
+
+export function depthUnitName(value) {
+  if (displayUnits.depth === 'cm') return t(Number(value) === 1 ? 'centimeter' : 'centimeters');
+  return t(Number(value) === 1 ? 'inch' : 'inches');
+}
+
+export function depthNumber(inches) {
+  return Number(convertWeather(inches, 'in').toFixed(4));
+}
+
+export function depthThreshold(inches, long = false) {
+  const value = depthNumber(inches);
+  return `${value} ${long ? depthUnitName(value) : weatherUnit('in')}`;
+}
+
+export function overnightTarget(long = false) {
+  return `${depthNumber(4)}–${depthThreshold(5, long)}`;
+}

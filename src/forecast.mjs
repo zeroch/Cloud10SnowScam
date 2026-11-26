@@ -1,4 +1,4 @@
-import { t } from './i18n.mjs';
+import { t, convertWeather, depthNumber, depthThreshold, overnightTarget, weatherUnit } from './i18n.mjs';
 import { HOUR, localParts, localDayStart, nightWindow, formatTime } from './time.mjs';
 import { finite, summarizeSnowLevel } from './conditions.mjs';
 import { MODELS, snowLevelBands } from './config.mjs';
@@ -170,14 +170,14 @@ export function overnightForecast(data, now) {
 
 // Snowfall labels round up. Forecast calculations use the original amounts.
 export function snowAmount(value) {
-  return finite(value) && value >= 0 ? String(Math.ceil(value)) : t('Unavailable');
+  return finite(value) && value >= 0 ? String(Math.ceil(convertWeather(value, 'in'))) : t('Unavailable');
 }
 
 export function snowRange(range, withUnit = true) {
   if (!finite(range?.min) || !finite(range?.max) || range.min < 0 || range.max < range.min) return t('Unavailable');
   const min = snowAmount(range.min), max = snowAmount(range.max);
   const span = min === max ? min : min + '–' + max;
-  return withUnit ? t('{0} in', span) : span;
+  return withUnit ? t('{0} {1}', span, weatherUnit('in')) : span;
 }
 
 function collectionState(source, now) {
@@ -243,13 +243,13 @@ function mainUncertainty(n, models, timingRisk) {
     t('Some models forecast precipitation while NWS snow level is at/above {0} ft. Check those intervals below.', n.bands.wet.toLocaleString('en-US')));
   const { four, five, available } = n.support;
   if (four > 0 && four < available) return explain('amount', four === 1
-    ? t('Only 1 of {0} models reaches 4 inches. The high end depends on a single forecast.', available)
-    : t('{0} of {1} models reach 4 inches, but {2} below it.', four, available, available - four === 1 ? t('one model stays') : t('{0} models stay', available - four)));
-  if (five > 0 && five < available) return explain('amount', t('Models agree on at least 4 inches, but differ on reaching 5 inches.'));
+    ? t('Only 1 of {0} models reaches {1}. The high end depends on a single forecast.', available, depthThreshold(4, true))
+    : t('{0} of {1} models reach {2}, but {3} below it.', four, available, depthThreshold(4, true), available - four === 1 ? t('one model stays') : t('{0} models stay', available - four)));
+  if (five > 0 && five < available) return explain('amount', t('Models agree on at least {0}, but differ on reaching {1}.', depthThreshold(4, true), depthThreshold(5, true)));
   // A display sensitivity cue, not a calibrated error bound or confidence score.
   if (n.snow.models.some(m => m.complete && [4,5].some(t => Math.abs(m.total - t) <= .5)))
-    return explain('threshold', t('Some estimates are within half an inch of your 4–5 inch target. Small forecast changes could alter target support.'));
-  if (n.snow.max < 4) return explain('below', t('All models stay below 4 inches. The forecast offers little support for your fresh-snow target.'));
+    return explain('threshold', t('Some estimates are within {0} of your {1} target. Small forecast changes could alter target support.', depthThreshold(0.5, true), overnightTarget()));
+  if (n.snow.max < 4) return explain('below', t('All models stay below {0}. The forecast offers little support for your fresh-snow target.', depthThreshold(4, true)));
   if (timingRisk === 'split') return explain('timing', t('Arrival timing is unresolved between models. Inspect the overnight intervals before relying on a morning total.'));
   if (timingRisk === 'late') return explain('timing', t('Most forecast accumulation is after midnight. A delay could change how much arrives by 6 am.'));
   return explain('forecast', t('Model agreement does not verify actual snowfall. Check a station report before leaving.'));
@@ -279,17 +279,17 @@ export function overnightDecision(data, now, choice = 'auto') {
   else if (phase === 'remaining') headline = t('Remaining overnight forecast');
   else if (coverage === 'single') headline = t('Only {0} covers this night', complete[0].label);
   else {
-    amountState = snow.max === 0 ? 'zero' : snow.max < 4 ? 'below' : snow.min < 4 ? t('split') : snow.min < 5 ? 'lower' : 'upper';
+    amountState = snow.max === 0 ? 'zero' : snow.max < 4 ? 'below' : snow.min < 4 ? 'split' : snow.min < 5 ? 'lower' : 'upper';
     headline = {
       zero: coverage === 'full' ? t('No snow forecast overnight') : t('Available models show zero'),
-      below: coverage === 'full' ? t('Below your 4–5 inch target') : t('Available models fall below your target'),
+      below: coverage === 'full' ? t('Below your {0} target', overnightTarget()) : t('Available models fall below your target'),
       split: coverage === 'full' ? t('Models split on your target') : t('Available models split on your target'),
-      lower: t('{0} reach at least 4 inches', subject), upper: t('{0} reach at least 5 inches', subject),
+      lower: t('{0} reach at least {1}', subject, depthThreshold(4, true)), upper: t('{0} reach at least {1}', subject, depthThreshold(5, true)),
     }[amountState];
   }
   const rows = snow.models.map((row, i) => ({ ...row, color: models[i].color,
     target: !row.complete ? t('Missing hours') : forecastState !== 'current' ? t('Saved') : phase !== 'upcoming' ? t('{0}/{1} hr', row.covered, row.expected)
-      : row.total === 0 ? t('No snow') : row.total < 4 ? t('Below 4') : row.total < 5 ? t('4–5 in') : t('At least 5'),
+      : row.total === 0 ? t('No snow') : row.total < 4 ? t('Below {0}', depthNumber(4)) : row.total < 5 ? overnightTarget() : t('At least {0}', depthNumber(5)),
     targetState: !row.complete || forecastState !== 'current' || phase !== 'upcoming' ? 'neutral' : row.total < 4 ? 'below' : 'meets',
   }));
   const bins = forecastBins(start, night.end, 3).map(bin => ({ ...bin,

@@ -1,8 +1,9 @@
-import { chooseLanguage, displayLanguage, setDisplayLanguage, supportedLanguage, t } from '/lib/i18n.mjs';
+import { chooseLanguage, displayLanguage, setDisplayLanguage, supportedLanguage, t, displayUnits, overnightTarget, setDisplayUnits } from '/lib/i18n.mjs';
 import { getResort } from '/lib/config.mjs';
 import chinese from './zh-CN.mjs';
 
 const storageKey = 'cloud10-language';
+const unitsKey = 'cloud10-units';
 const pageLanguage = () => new URL(location.href).searchParams.get('lang');
 let saved;
 try { saved = localStorage.getItem(storageKey); } catch { /* The URL also carries the choice. */ }
@@ -54,14 +55,14 @@ export function updateLanguageLinks(root = document) {
 }
 
 const updateShell = bindShell();
-const select = document.createElement('select');
-select.id = 'forecast-language';
-for (const [value, name] of [['en', 'English'], ['zh-CN', '简体中文']]) {
-  const option = new Option(name, value);
-  option.lang = value;
-  select.add(option);
-}
-document.querySelector('#compare-menu, .clould-menu, .site-header #refresh').before(select);
+const preferences = document.createElement('div');
+preferences.className = 'forecast-preferences';
+const languageButton = preferenceButton('forecast-language', changeLanguage);
+const temperature = preferenceButton('forecast-temperature-unit', () =>
+  changeUnit('temperature', displayUnits.temperature === 'F' ? 'C' : 'F'));
+const depth = preferenceButton('forecast-depth-unit', () =>
+  changeUnit('depth', displayUnits.depth === 'in' ? 'cm' : 'in'));
+document.querySelector('#compare-menu, .clould-menu, .site-header #refresh').before(preferences);
 const css = document.createElement('link');
 css.rel = 'stylesheet';
 css.href = '/clone/language.css';
@@ -70,21 +71,66 @@ document.head.append(css);
 function apply(language) {
   setDisplayLanguage(language, chinese);
   document.documentElement.lang = displayLanguage;
-  select.value = displayLanguage;
-  select.setAttribute('aria-label', t('Language'));
+  const english = displayLanguage === 'en';
+  updateButton(languageButton, 'Language', english ? 'English' : '简体中文', english ? '简体中文' : 'English');
+  preferences.setAttribute('aria-label', t('Display preferences'));
   updateShell();
   updateLanguageLinks();
+  updateUnitChoices();
 }
 
-select.addEventListener('change', () => {
-  saved = select.value;
+function preferenceButton(id, onClick) {
+  const button = preferences.appendChild(document.createElement('button'));
+  button.id = id;
+  button.type = 'button';
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function updateButton(button, name, current, next) {
+  button.textContent = current;
+  button.setAttribute('aria-label', t('{0}: {1}. Switch to {2}', t(name), current, next));
+}
+
+function changeUnit(key, value) {
+  setDisplayUnits({ ...displayUnits, [key]: value });
+  try { localStorage.setItem(unitsKey, JSON.stringify(displayUnits)); } catch { /* Use this page's choice. */ }
+  updateUnitChoices();
+  document.dispatchEvent(new Event('cloud10:unitschange'));
+}
+
+function updateUnitChoices() {
+  const fahrenheit = displayUnits.temperature === 'F';
+  const inches = displayUnits.depth === 'in';
+  updateButton(temperature, 'Temperature unit', fahrenheit ? '°F' : '°C', fahrenheit ? '°C' : '°F');
+  updateButton(depth, 'Snow and precipitation unit', t(inches ? 'in' : 'cm'), t(inches ? 'cm' : 'in'));
+  const target = document.querySelector('[data-snow-target]');
+  if (target) {
+    const label = overnightTarget();
+    const breakAt = label.indexOf(' ');
+    target.firstChild.data = label.slice(0, breakAt);
+    target.lastElementChild.textContent = label.slice(breakAt);
+  }
+}
+
+function restoreUnits() {
+  const previous = displayUnits;
+  try { setDisplayUnits(JSON.parse(localStorage.getItem(unitsKey))); }
+  catch { return; }
+  if (previous.temperature === displayUnits.temperature && previous.depth === displayUnits.depth) return;
+  updateUnitChoices();
+  document.dispatchEvent(new Event('cloud10:unitschange'));
+}
+
+function changeLanguage() {
+  saved = displayLanguage === 'en' ? 'zh-CN' : 'en';
   const url = new URL(location.href);
   url.searchParams.set('lang', saved);
   history.replaceState(history.state, '', url);
   try { localStorage.setItem(storageKey, saved); } catch { /* Keep using the URL. */ }
   apply(saved);
   document.dispatchEvent(new Event('cloud10:languagechange'));
-});
+}
 function restoreLanguage() {
   try { saved = localStorage.getItem(storageKey) || saved; } catch { /* In-memory fallback. */ }
   const language = preferred();
@@ -95,4 +141,8 @@ function restoreLanguage() {
 }
 window.addEventListener('popstate', restoreLanguage);
 window.addEventListener('pageshow', restoreLanguage);
+window.addEventListener('pageshow', restoreUnits);
+window.addEventListener('storage', event => { if (!event.key || event.key === unitsKey) restoreUnits(); });
+preferences.setAttribute('role', 'group');
+restoreUnits();
 apply(preferred());

@@ -1,4 +1,4 @@
-import { t } from '/lib/i18n.mjs';
+import { t, convertWeather, weatherUnit } from '/lib/i18n.mjs';
 import { localParts, formatTime } from '/lib/time.mjs';
 import { finite } from '/lib/conditions.mjs';
 import { snowRange } from '/lib/forecast.mjs';
@@ -11,9 +11,11 @@ export function drawChart(container, chart, metric, selectedIndex, onInspect) {
   const W = Math.max(260, Math.min(1200, container.clientWidth)), compact = W < 540;
   const H = compact ? 235 : 276, L = compact ? 5 : 18, R = compact ? 40 : 61, T = 27, B = 41, width = W - L - R, height = H - T - B;
   chart.geometry = { left: L, width };
-  const values = chart.lines.flatMap(l => l.values).filter(finite);
-  let min = metric === 'temperature' ? Math.floor(Math.min(...values, 30) / 10) * 10 : 0;
-  let max = metric === 'temperature' ? Math.ceil(Math.max(...values, 40) / 10) * 10 : metric === 'level' ? Math.ceil(Math.max(...values, 6000) / 2000) * 2000 : metric === 'wind' ? Math.ceil(Math.max(...values, 20) / 10) * 10 : Math.ceil(Math.max(...values, 1));
+  const unit = METRICS[metric].unit;
+  const plotValue = value => convertWeather(value, unit);
+  const values = chart.lines.flatMap(l => l.values).filter(finite).map(plotValue);
+  let min = metric === 'temperature' ? Math.floor(Math.min(...values, plotValue(30)) / 10) * 10 : 0;
+  let max = metric === 'temperature' ? Math.ceil(Math.max(...values, plotValue(40)) / 10) * 10 : metric === 'level' ? Math.ceil(Math.max(...values, 6000) / 2000) * 2000 : metric === 'wind' ? Math.ceil(Math.max(...values, 20) / 10) * 10 : Math.ceil(Math.max(...values, plotValue(1)));
   if (max === min) max = min + 1;
   const gridStep = metric === 'snow' ? Math.ceil(max / 4) : (max - min) / 4;
   if (metric === 'snow') max = Math.ceil(max / gridStep) * gridStep;
@@ -39,12 +41,12 @@ export function drawChart(container, chart, metric, selectedIndex, onInspect) {
   if (metric === 'level') for (const [value, label] of [[2000, t('2,000 ft · favorable')], [4000, t('4,000 ft · borderline')]]) references += `<line x1="${L}" y1="${y(value)}" x2="${W - R}" y2="${y(value)}" stroke="${value === 4000 ? '#b5763e' : '#127b83'}" stroke-dasharray="7 5" opacity=".65"/><text x="${L + 8}" y="${y(value) - 7}" fill="#526a6c" font-size="11">${label}</text>`;
   const paths = chart.lines.map(line => {
     let d = '', connected = false;
-    line.values.forEach((value, i) => { if (!finite(value)) { connected = false; return; } d += `${connected ? 'L' : 'M'}${n(x(i))},${n(y(value))} `; connected = true; });
+    line.values.forEach((value, i) => { if (!finite(value)) { connected = false; return; } d += `${connected ? 'L' : 'M'}${n(x(i))},${n(y(plotValue(value)))} `; connected = true; });
     return `<path d="${d}" fill="none" stroke="${line.color}" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>`;
   }).join('');
   const message = chartMessage(chart, metric);
   const emptyText = compact && message === t('No measurable snow in this forecast window') ? t('No measurable snow forecast') : message;
-  container.innerHTML = `<svg class="forecast-svg" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-description"><title id="chart-title">${t('{0} forecast comparison', t(METRICS[metric].label))}</title><desc id="chart-description">${t('{0}. Shaded hours are 6 pm to 6 am Pacific. Use the time slider or data table to inspect values.', t(METRICS[metric].note))}</desc>${shades}${grid}${references}${paths}<text x="${W - R + 12}" y="13" fill="#60737b" font-size="11">${t(METRICS[metric].unit)}</text>${emptyText ? `<text x="${L + width / 2}" y="${T + height / 2}" text-anchor="middle" fill="#60737b" font-size="14">${emptyText}</text>` : ''}<line id="chart-crosshair" x1="${x(selectedIndex)}" x2="${x(selectedIndex)}" y1="${T}" y2="${H - B}" stroke="#163d46" stroke-width="1" opacity=".3" stroke-dasharray="3 4"/></svg>`;
+  container.innerHTML = `<svg class="forecast-svg" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-description"><title id="chart-title">${t('{0} forecast comparison', t(METRICS[metric].label))}</title><desc id="chart-description">${t('{0}. Shaded hours are 6 pm to 6 am Pacific. Use the time slider or data table to inspect values.', t(METRICS[metric].note))}</desc>${shades}${grid}${references}${paths}<text x="${W - R + 12}" y="13" fill="#60737b" font-size="11">${weatherUnit(unit)}</text>${emptyText ? `<text x="${L + width / 2}" y="${T + height / 2}" text-anchor="middle" fill="#60737b" font-size="14">${emptyText}</text>` : ''}<line id="chart-crosshair" x1="${x(selectedIndex)}" x2="${x(selectedIndex)}" y1="${T}" y2="${H - B}" stroke="#163d46" stroke-width="1" opacity=".3" stroke-dasharray="3 4"/></svg>`;
   const svg = container.querySelector('svg');
   const inspect = event => {
     const box = svg.getBoundingClientRect();
@@ -58,5 +60,7 @@ export function drawChart(container, chart, metric, selectedIndex, onInspect) {
 export function valueLabel(value, metric) {
   if (!finite(value)) return t('Unavailable');
   if (metric === 'snow') return snowRange({ min: value, max: value });
-  return metric === 'level' ? t('{0} ft', Math.round(value / 100) * 100) : `${Math.round(value)}${metric === 'temperature' ? '°F' : t(' mph')}`;
+  if (metric === 'level') return t('{0} ft', Math.round(value / 100) * 100);
+  if (metric === 'temperature') return `${Math.round(convertWeather(value, '°F'))}${weatherUnit('°F')}`;
+  return `${Math.round(value)}${t(' mph')}`;
 }
