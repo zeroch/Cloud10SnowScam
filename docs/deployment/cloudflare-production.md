@@ -23,7 +23,7 @@ Configure the GitHub environment **production** for branch `main` only. Set the 
 | Variable | `CLOUDFLARE_ACCOUNT_ID` | Production Cloudflare account ID |
 | Variable | `CLOUDFLARE_D1_DATABASE_ID` | ID of the existing forecast D1 database bound as `DB` |
 
-Enable **Version URLs** in the Worker's **Settings → Domains & Routes**. An uploaded version uses its own static assets and the existing D1 binding. The release workflow uses the existing hostname and cron and performs no database migrations. Its live probes use read-only application endpoints.
+On the Worker’s **Domains** tab, enable the **Preview** switch for its version-specific `workers.dev` URLs. An uploaded version uses its own static assets and the existing D1 binding. The release workflow uses the existing hostname and cron and performs no database migrations. Its live probes use read-only application endpoints.
 
 For a new installation, provision the Worker, D1, hostname and trigger once. Apply [the shared schema](../../deploy/cloudflare-pilot/schema.sql) followed by [the production schema](../../deploy/cloudflare-production/schema.sql). The example config includes the collector schedule. The separate [pilot configuration](../../deploy/cloudflare-pilot/wrangler.example.jsonc) describes the optional 24-hour measurement window.
 
