@@ -173,7 +173,7 @@ export function morningConditions(data) {
   const roadDetails = road ? `${road.condition ? `<p lang="en">${escape(road.condition)}</p>` : ''}${road.weather ? `<p><b>${t('Weather:')}</b> <span lang="en">${escape(road.weather)}</span></p>` : ''}${(road.directions || []).map(item => `<p><b>${escape(t(item.direction))}:</b> <span lang="en">${escape(item.message)}</span></p>`).join('')}` : `<p>${t('No corridor report is available.')}</p>`;
   const fetchedAt = source('wsdot')?.fetchedAt;
   return `<article class="mountain-panel mountain-conditions" aria-labelledby="morning-heading"><div class="mountain-panel-heading"><div><p class="mountain-eyebrow">${t('BEFORE YOU GO')}</p><h2 id="morning-heading">${t('Mountain &amp; road conditions')}</h2></div><span class="mountain-heading-tag">${t('Observations')}</span></div><div class="mountain-condition-grid"><section class="mountain-observation"><div class="mountain-condition-title"><span class="mountain-condition-icon" aria-hidden="true">✳</span><div><h3>${t('Nearby station · {0}', escape(station.name))}</h3><p>${t('NWAC · {0} ft', station.elevationFt.toLocaleString('en-US'))}</p></div></div><div class="mountain-readings">
-      <div class="mountain-reading-snowfall"><span>${t('24-hour snowfall')}</span>${reading(station.snowfall24h, 'in', { format: snowAmount, unavailable: t('No snow-board reading') })}</div>
+      <div class="mountain-reading-snowfall"><span>${t('Past 24h snow accumulation')}</span>${reading(station.snowfall24h, 'in', { format: snowAmount, unavailable: t('No snow-board reading') })}</div>
       <div><span>${t('Snow depth')}</span>${reading(station.depth, 'in')}</div>
       <div><span>${t('Air temperature')}</span>${reading(station.temperature, '°F')}</div>
     </div>
