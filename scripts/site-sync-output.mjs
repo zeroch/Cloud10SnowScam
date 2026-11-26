@@ -22,12 +22,8 @@ async function checkedPath(root, path) {
   return path;
 }
 
-async function checkExistingAssets(site, current) {
+async function checkExistingAssets(site, current, owned) {
   if (!await entry(join(site, 'public'))) return;
-  const owned = new Set();
-  if (await entry(join(site, '.git'))) {
-    for (const { path, regular } of indexEntries(site, ['public'])) if (regular) owned.add(path);
-  }
   async function walk(directory) {
     for (const item of await readdir(join(site, directory), { withFileTypes: true })) {
       const path = directory + '/' + item.name;
@@ -53,7 +49,11 @@ export async function syncSiteOutputs(root, outputs) {
   const state = await checkedPath(base, join(base, '.cache', 'site-sync-' + dev + '-' + ino + '.json'));
   const stateFile = await entry(state);
   if (stateFile && !stateFile.isFile()) throw new Error('Unexpected site sync state file: ' + state);
-  if (!stateFile) await checkExistingAssets(site, current);
+  const owned = new Set();
+  if (await entry(join(site, '.git'))) {
+    for (const { path, regular } of indexEntries(site, ['public'])) if (regular) owned.add(path);
+  }
+  if (!stateFile) await checkExistingAssets(site, current, owned);
   const previous = new Map(stateFile ? Object.entries(JSON.parse(await readFile(state, 'utf8'))) : []);
 
   // Earlier versions also copied ignored and untracked source assets. Never guess ownership
@@ -69,6 +69,7 @@ export async function syncSiteOutputs(root, outputs) {
     await checkedPath(base, target);
     const info = await entry(target);
     if (!info) continue;
+    if (!previous.has(path) && info.isFile() && owned.has(path)) continue;
     if (!previous.has(path) || !info.isFile() || digest(await readFile(target)) !== previous.get(path)) {
       throw new Error('Review existing site file before syncing; its source is no longer selected: ' + path);
     }

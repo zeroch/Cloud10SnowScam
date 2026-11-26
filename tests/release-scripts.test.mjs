@@ -70,8 +70,10 @@ describe('release scripts', { skip: runtimeOnly }, () => {
   });
 
   it('syncs only tracked assets while preserving site-owned files and remapped sources', async t => {
-    const { root, addSiteAsset, run } = await fixture(t);
+    const { root, put, addSiteAsset, run } = await fixture(t);
     await addSiteAsset();
+    await put('public/site-owned.svg', 'untracked source file with the same name');
+    run('sync-site.mjs');
     run('sync-site.mjs');
     const site = join(root, 'sites/clould10');
     for (const path of privateFiles) assert.equal(existsSync(join(site, path)), false, path);
