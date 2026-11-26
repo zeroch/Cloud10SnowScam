@@ -1,4 +1,4 @@
-import { t } from '/lib/i18n.mjs';
+import { t, convertWeather, weatherUnit } from '/lib/i18n.mjs';
 import { METRICS, snowRange } from '/lib/forecast.mjs';
 import { localParts, formatTime } from '/lib/time.mjs';
 import { finite } from '/lib/conditions.mjs';
@@ -8,7 +8,8 @@ export function metricValue(value, metric) {
   if (!finite(value)) return t('Unavailable');
   if (metric === 'snow') return escape(snowRange({min:value,max:value}));
   const unit = METRICS[metric].unit;
-  return `${metric === 'level' ? Math.round(value / 100) * 100 : amount(value, unit === 'in' ? 2 : 0)} ${t(unit)}`;
+  const displayValue = metric === 'level' ? Math.round(value / 100) * 100 : amount(convertWeather(value, unit), unit === 'in' ? 2 : 0);
+  return `${displayValue} ${weatherUnit(unit)}`;
 }
 
 export function drawComparison(container, chart, metric, index, inspect) {
@@ -16,9 +17,10 @@ export function drawComparison(container, chart, metric, index, inspect) {
   const width = Math.max(260, Math.min(1400, container.clientWidth)), small = width < 600;
   const height = small ? 260 : 300, left = 10, right = 55, top = 25, bottom = 45;
   const plotW = width - left - right, plotH = height - top - bottom;
-  const values = chart.lines.flatMap(line => line.values).filter(finite);
-  const rawMin = metric === 'temperature' ? Math.floor(Math.min(...values, 30) / 10) * 10 : 0;
-  const rawMax = metric === 'cloud' ? 100 : metric === 'level' ? Math.max(...values, 6000) : metric === 'temperature' ? Math.max(...values, 40) : Math.max(...values, metric === 'snow' ? 1 : spec.unit === 'in' ? 0.1 : 20);
+  const plotValue = value => convertWeather(value, spec.unit);
+  const values = chart.lines.flatMap(line => line.values).filter(finite).map(plotValue);
+  const rawMin = metric === 'temperature' ? Math.min(...values, plotValue(30)) : 0;
+  const rawMax = metric === 'cloud' ? 100 : metric === 'level' ? Math.max(...values, 6000) : metric === 'temperature' ? Math.max(...values, plotValue(40)) : Math.max(...values, plotValue(metric === 'snow' ? 1 : spec.unit === 'in' ? 0.1 : 20));
   const roughStep = (rawMax - rawMin) / 4, magnitude = 10 ** Math.floor(Math.log10(roughStep));
   const niceStep = [1, 2, 2.5, 5, 10].find(factor => factor * magnitude >= roughStep) * magnitude;
   const step = metric === 'snow' ? Math.ceil(niceStep) : niceStep;
@@ -44,14 +46,14 @@ export function drawComparison(container, chart, metric, index, inspect) {
     let path = '', connected = false;
     line.values.forEach((value, i) => {
       if (!finite(value)) { connected = false; return; }
-      path += `${connected ? 'L' : 'M'}${x(i)},${y(value)} `; connected = true;
+      path += `${connected ? 'L' : 'M'}${x(i)},${y(plotValue(value))} `; connected = true;
     });
     markup += `<path data-model-line="${line.id}" d="${path}" fill="none" stroke="${line.color}" stroke-width="2.5" stroke-dasharray="${linePattern(line.id)}" stroke-linecap="round"/>`;
   }
   if (!values.length) markup += `<text x="${left + plotW / 2}" y="${top + plotH / 2}" text-anchor="middle" fill="#677480">${chart.lines.length ? t('No data for this window') : t('Select a model to compare')}</text>`;
   else if (spec.mode === 'cumulative' && chart.lines.every(line => line.values.length === chart.times.length && line.values.every(finite)) && Math.max(...values) === 0) markup += `<text x="${left + plotW / 2}" y="${top + plotH / 2}" text-anchor="middle" fill="#677480">${t('No measurable {0} forecast', metric === 'snow' ? t('snow') : t('precipitation'))}</text>`;
   const title = metric === 'level' ? t('NWS snow-level forecast, independent of selected models') : t('{0} model comparison', t(spec.label));
-  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escape(title)}"><title>${escape(title)}</title>${markup}<text x="${width - right + 8}" y="14" fill="#677480" font-size="12">${t(spec.unit)}</text><line class="live-crosshair" x1="${x(index)}" x2="${x(index)}" y1="${top}" y2="${top + plotH}" stroke="#2b3e50" stroke-dasharray="4 4" opacity=".5"/></svg>`;
+  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escape(title)}"><title>${escape(title)}</title>${markup}<text x="${width - right + 8}" y="14" fill="#677480" font-size="12">${weatherUnit(spec.unit)}</text><line class="live-crosshair" x1="${x(index)}" x2="${x(index)}" y1="${top}" y2="${top + plotH}" stroke="#2b3e50" stroke-dasharray="4 4" opacity=".5"/></svg>`;
   const svg = container.querySelector('svg');
   const move = event => {
     const box = svg.getBoundingClientRect();

@@ -1,11 +1,11 @@
-import { t } from './i18n.mjs';
+import { t, convertWeather, overnightTarget, weatherUnit } from './i18n.mjs';
 import { RESORT, getResort, snowLevelBands } from './config.mjs';
 import { HOUR, nightWindow, formatDate, formatTime } from './time.mjs';
 import { stationSummary, summarizeModel, summarizeSnowLevel, finite } from './conditions.mjs';
 import { snowAmount, snowRange } from './forecast.mjs';
 
 const usable = (data, id) => ['fresh', 'cached'].includes(data.sources?.find(s => s.id === id)?.status);
-const temp = (station) => finite(station?.temperatureF) ? `${Math.round(station.temperatureF)}°F` : t('temperature unavailable');
+const temp = (station) => finite(station?.temperatureF) ? `${Math.round(convertWeather(station.temperatureF, '°F'))}${weatherUnit('°F')}` : t('temperature unavailable');
 
 export function buildAdvice(data, now) {
   const resort = getResort(data.resort?.id) || RESORT;
@@ -28,7 +28,7 @@ export function buildAdvice(data, now) {
     const snow = brooks.board.changeIn;
     current.status = snow >= 5 ? 'promising' : snow >= 4 ? 'watch' : 'below';
     current.headline = snow >= 5 ? t('Fresh-snow signal at Brooks') : snow >= 4 ? t('Close to your snow target') : t('Limited snow signal so far');
-    current.detail = t('{0} in board increase from 6 pm to {1}. Your fresh-snow target is 4–5 in.', snowAmount(snow), formatTime(brooks.board.end));
+    current.detail = t('{0} board increase from 6 pm to {1}. Your fresh-snow target is {2}.', t('{0} {1}', snowAmount(snow), weatherUnit('in')), formatTime(brooks.board.end), overnightTarget());
     if (snow >= 4 && brooks.temperatureF > 34) { current.status = 'watch'; current.headline = t('Snow signal, with warm conditions'); }
     if (!finite(brooks.temperatureF)) {
       current.status = 'limited'; current.headline = t('Snow signal; temperature check missing');
@@ -37,7 +37,7 @@ export function buildAdvice(data, now) {
     current.evidence.push(brooks.board.reason);
   } else {
     current.detail = brooks.board.reason;
-    current.evidence.push(t('Unknown measured snow is not a zero-inch report.'));
+    current.evidence.push(t('The measured snowfall is unknown.'));
   }
   const window = nightWindow(now);
   const start = Math.max(window.start, Math.ceil(now / HOUR) * HOUR);

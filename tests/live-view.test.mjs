@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { forecastWindow } from '../src/forecast.mjs';
+import { setDisplayUnits } from '../src/i18n.mjs';
 import { overnightFixture, EXAMPLE_NOW } from './fixtures/overnight.mjs';
 import { horizonFixture, HORIZON_NOW } from './fixtures/horizon.mjs';
 
@@ -34,6 +35,23 @@ test('chart inspection rounds snowfall up while preserving zero, missing and liq
   assert.equal(metricValue(0, 'snow'), '0 in');
   assert.equal(metricValue(null, 'snow'), 'Unavailable');
   assert.equal(metricValue(.39, 'precip'), '0.39 in');
+});
+
+test('daily and chart displays convert temperature and precipitation independently', ctx => {
+  ctx.after(() => setDisplayUnits({}));
+  const snapshot = data();
+  setDisplayUnits({ temperature: 'C' });
+  assert.equal(metricValue(32, 'temperature'), '0 °C');
+  assert.equal(metricValue(-40, 'temperature'), '-40 °C');
+  assert.equal(metricValue(.5, 'precip'), '0.50 in');
+  setDisplayUnits({ depth: 'cm' });
+  assert.equal(metricValue(32, 'temperature'), '32 °F');
+  assert.equal(metricValue(.5, 'precip'), '1.27 cm');
+  assert.equal(metricValue(.00001, 'snow'), '1 cm');
+  assert.equal(metricValue(null, 'snow'), 'Unavailable');
+  assert.match(view.daily(snapshot, state), /Liquid precip<br>cm/);
+  const cells = view.precipitation(snapshot, { ...state, precipField: 'precipIn', precipHours: 6, precipPeriod: 'all' });
+  assert.match(cells, /0\.762 cm[^>]*data-amount="0\.3">0\.76<\/td>/);
 });
 
 test('coverage identifies missing values for the selected variable', () => {

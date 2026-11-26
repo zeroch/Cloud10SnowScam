@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import chinese from '../public/clone/zh-CN.mjs';
-import { chooseLanguage, setDisplayLanguage, t } from '../src/i18n.mjs';
+import { chooseLanguage, displayUnits, setDisplayLanguage, setDisplayUnits, t } from '../src/i18n.mjs';
 import { formatDate, formatTime, isPacificWeekend } from '../src/time.mjs';
 import { buildResortComparison } from '../src/resort-comparison.mjs';
 import { MORNING_RESORTS, RESORTS } from '../src/config.mjs';
@@ -16,6 +16,37 @@ async function browserView(name) {
 }
 const view = await browserView('live-view');
 const { renderComparison } = await browserView('resort-comparison-view');
+
+test('unit preferences convert forecast amounts without changing the forecast or snow rating', ctx => {
+  ctx.after(() => setDisplayUnits({}));
+  const entries = resortComparisonFixture();
+  const board = () => buildResortComparison(entries, COMPARISON_NOW, { days: 5 });
+  const facts = value => value.rows.map(({ night, fraction }) => [night.estimate.blendedIn, night.quality.key, fraction]);
+  const original = board();
+  assert.match(renderComparison(original), /data-snowfall-value="5"/);
+  setDisplayUnits({ depth: 'cm' });
+  assert.equal(displayUnits.temperature, 'F');
+  const metric = board();
+  assert.deepEqual(facts(metric), facts(original));
+  assert.match(renderComparison(metric), /data-snowfall-value="13"/);
+  assert.match(renderComparison(metric), />cm<\/span>/);
+  assert.match(renderComparison(metric), /12\.7 centimeters/);
+});
+
+test('Chinese station readings use the selected units and preserve zero and unavailable readings', ctx => {
+  ctx.after(() => { setDisplayLanguage('en'); setDisplayUnits({}); });
+  setDisplayLanguage('zh-CN', chinese);
+  setDisplayUnits({ depth: 'cm', temperature: 'C' });
+  const resort = RESORTS[0], observedAt = COMPARISON_NOW;
+  const reading = value => ({ value, observedAt, state: 'fresh' });
+  const station = { ...MORNING_RESORTS[resort.id].station, snowfall24h: reading(0), depth: reading(4), temperature: reading(14) };
+  const render = () => view.morningConditions({ resort, sources: [], morning: { station } });
+  assert.match(render(), /<strong>0<span> 厘米<\/span>/);
+  assert.match(render(), /<strong>10\.2<span> 厘米<\/span>/);
+  assert.match(render(), /<strong>-10<span> °C<\/span>/);
+  station.temperature = null;
+  assert.match(render(), /气温<\/span><strong>暂无数据<\/strong>/);
+});
 
 test('explicit and saved language choices take precedence over browser preferences', () => {
   assert.equal(chooseLanguage('en', 'zh-CN', ['zh']), 'en');
