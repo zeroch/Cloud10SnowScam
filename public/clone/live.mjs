@@ -220,6 +220,7 @@ export function startLive() {
   if (active || !document.body.dataset.live) return;
   active = true;
   document.addEventListener('cloud10:languagechange', () => render());
+  document.addEventListener('cloud10:unitschange', () => render());
   const back = $('#back-to-comparison');
   if (back) back.href = comparisonReturnUrl(location.href);
   updateLanguageLinks();

@@ -42,6 +42,7 @@ const menu = document.getElementById('compare-menu'), links = document.getElemen
 menu.addEventListener('click', () => { const open = menu.getAttribute('aria-expanded') !== 'true'; menu.setAttribute('aria-expanded', String(open)); links.hidden = !open; });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !links.hidden) { links.hidden = true; menu.setAttribute('aria-expanded','false'); menu.focus(); } });
 document.addEventListener('cloud10:languagechange', render);
+document.addEventListener('cloud10:unitschange', render);
 window.addEventListener('popstate', () => { readUrl(); render(); });
 window.addEventListener('pageshow', event => { if (event.persisted) { readUrl(); render(); refresh(); } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); refresh(); } });

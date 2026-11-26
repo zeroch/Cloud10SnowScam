@@ -1,8 +1,14 @@
-#forecast-language {
-  flex: none;
+.forecast-preferences {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-inline-start: auto;
+}
+.forecast-preferences button {
+  flex: none;
+  min-inline-size: 44px;
   min-height: 44px;
-  padding: 4px 8px;
+  padding: 4px 5px;
   border: 1px solid var(--club-rule);
   border-radius: 4px;
   background: var(--club-paper);
@@ -10,8 +16,39 @@
   font: 500 14px/1.4 var(--club-sans);
   cursor: pointer;
 }
-#forecast-language:focus-visible { outline: 3px solid var(--club-seal); outline-offset: 2px; }
-#forecast-language + #compare-menu, #forecast-language + .clould-menu { margin-inline-start: 4px; }
+.forecast-preferences button::after { content: "⇄" / ""; margin-inline-start: 4px; color: var(--club-secondary); }
+.forecast-preferences button:hover { background: var(--club-wash); border-color: var(--club-ink); }
+.forecast-preferences button:focus-visible { outline: 3px solid var(--club-seal); outline-offset: 2px; }
+.forecast-preferences + #compare-menu, .forecast-preferences + .clould-menu { margin-inline-start: 4px; }
+@media (max-width: 420px) {
+  .compare-topbar .compare-actions { display: contents; }
+  .forecast-preferences + #compare-menu, .forecast-preferences + .clould-menu { margin-inline-start: 0; }
+  .forecast-preferences button { font-size: 12px; padding-inline: 3px; }
+  .site-header:has(.forecast-preferences) {
+    height: auto;
+    min-height: 65px;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-block: 6px;
+  }
+  .site-header .forecast-preferences {
+    order: 1;
+    inline-size: 100%;
+    margin-inline-start: 0;
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 384px) {
+  .compare-topbar .forecast-preferences, .clould-nav .forecast-preferences {
+    order: 1;
+    inline-size: 100%;
+    margin-inline-start: 0;
+    justify-content: flex-end;
+  }
+  .forecast-preferences + #compare-menu,
+  body[data-live] .forecast-preferences + .clould-menu { margin-inline-start: auto; }
+  .clould-nav .clould-nav-links { order: 2; }
+}
 @media (max-width: 620px) {
   html:lang(zh-CN) .cloud-page .cloud-evidence-nav a { min-inline-size: 44px; padding-inline: 9px; }
 }
