@@ -1,0 +1,1 @@
+.AdaptiveDropdown__contentContainer{height:calc(var(--visible-height,23rem) - 3.25rem)}@media (width>=992px){.AdaptiveDropdown__contentContainer{height:auto}}

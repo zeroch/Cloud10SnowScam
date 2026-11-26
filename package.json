@@ -1,0 +1,13 @@
+{
+  "name": "cloud10",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "package:nas": "node scripts/package-nas.mjs"
+  }
+}

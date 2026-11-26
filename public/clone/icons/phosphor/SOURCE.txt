@@ -1,0 +1,4 @@
+@phosphor-icons/core 2.1.1
+https://github.com/phosphor-icons/core
+https://registry.npmjs.org/@phosphor-icons/core/-/core-2.1.1.tgz
+Icons copied unchanged from the npm package. MIT license included.

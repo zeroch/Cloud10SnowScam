@@ -1,0 +1,1 @@
+.PillOptionList__option:not(.PillOptionList__active):hover{background-color:var(--light-blue-10)}.PillOptionList__active{background-color:var(--os-color-basic-light-blue);color:#fff}.PillOptionList__active .PillOptionList__lockIcon{color:#fff}.Pills__listItem{position:relative}.Pills__listItemActive .Pills__listItemLockIcon{color:#fff}

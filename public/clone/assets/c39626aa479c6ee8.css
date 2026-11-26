@@ -1,0 +1,1 @@
+.InputWrapper__wrapper{border-color:var(--input-border-color);color:var(--os-color-text-darkest)}.InputWrapper__wrapper:focus-within{border-color:var(--os-color-basic-saturated-navy)}.InputWrapper__wrapper:has(input[disabled]){color:var(--os-color-text-regular)}.InputWrapper__invalid,.InputWrapper__invalid:focus-within{border-color:var(--os-color-basic-saturated-red)}

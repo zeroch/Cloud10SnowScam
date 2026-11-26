@@ -1,0 +1,1 @@
+.Card__body{border:1px solid var(--os-color-ui-card-border);min-width:var(--card-body-min-width,auto);border-radius:10px}.Card__noBodyStyles{border-radius:unset;background-color:#0000;border:0;overflow:auto}.Card__relativeFullHeight{height:calc(100% - 3.25rem)}

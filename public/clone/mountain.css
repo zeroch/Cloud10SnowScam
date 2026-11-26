@@ -1,0 +1,175 @@
+/* Mountain overview shared by all resort pages. */
+body[data-page="stevens"]{background:var(--club-paper)}
+body[data-page="stevens"] #pageContent.cloud-page{max-width:960px;padding-top:18px}
+body[data-live] #pageContent.cloud-page>.cloud-evidence-nav{background:var(--club-paper);display:flex;flex-wrap:nowrap;overflow-x:auto;gap:7px;margin:20px 0 22px;border-bottom:1px solid var(--club-rule);scrollbar-width:thin}
+.cloud-page .cloud-evidence-nav a{flex:0 0 auto;padding-inline:13px}
+.cloud-page :is(#live-conditions,#live-extended){scroll-margin-top:calc(var(--cloud-header-height,60px) + var(--cloud-section-nav-height,48px) + 14px)}
+.mountain-panel{background:var(--club-sheet);border:1px solid var(--club-rule);border-radius:16px;margin-bottom:20px;padding:25px 28px;color:var(--club-ink);box-shadow:none}
+.mountain-panel :is(h2,h3,p,ol){margin:0}
+.mountain-panel-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mountain-panel .mountain-eyebrow{color:var(--club-seal);font-size:12px;font-weight:800;letter-spacing:.13em;margin-bottom:6px}
+.mountain-panel h2{color:var(--club-ink);font-size:22px;letter-spacing:-.45px;line-height:1.2;font-weight:750}
+.mountain-heading-tag{flex:none;padding:6px 10px;border-radius:3px;background:var(--club-wash);color:var(--club-secondary);font-size:12px;font-weight:700}
+.mountain-intro{font-size:13px;color:var(--club-secondary);margin-top:8px!important}
+.mountain-condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:21px}
+.mountain-condition-grid>section{min-width:0;padding:18px;background:var(--club-paper);border:1px solid var(--club-rule);border-radius:12px}
+.mountain-condition-title{display:flex;gap:11px;align-items:flex-start}
+.mountain-condition-icon{display:grid;place-items:center;width:35px;height:35px;flex:none;background:var(--club-wash);border-radius:50%;color:var(--club-ink);font-size:21px;line-height:1}
+.mountain-road-icon{background:var(--club-wash);color:var(--club-ink);font-size:20px;font-weight:700}
+.mountain-condition-title h3{font-size:15px;line-height:1.3;font-weight:750;color:var(--club-ink)}
+.mountain-condition-title p{font-size:12px;line-height:1.5;color:var(--club-secondary);margin-top:4px}
+.mountain-readings{display:grid;grid-template-columns:1fr 1fr;gap:8px;border-top:1px solid var(--club-rule);margin-top:17px;padding-top:13px}
+.mountain-readings>div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.mountain-readings .mountain-reading-snowfall{grid-column:1/-1;border-bottom:1px solid var(--club-rule);padding-bottom:8px}
+.mountain-readings>div:last-child{border-inline-start:1px solid var(--club-rule);padding-inline-start:14px}
+.mountain-readings div>span{font-size:12px;color:var(--club-secondary)}
+.mountain-readings strong{font-size:24px;line-height:1.15;letter-spacing:-.7px;overflow-wrap:anywhere}
+.mountain-readings strong span{font-size:14px;font-weight:600;letter-spacing:0}
+.mountain-readings small{font-size:12px;line-height:1.4;color:var(--club-secondary)}
+.mountain-footnote{font-size:12px;line-height:1.5;color:var(--club-secondary);margin-top:14px!important}
+.mountain-source-link{display:inline-flex;align-items:center;min-height:36px;margin-top:6px;color:var(--club-seal)!important;font-size:12px;font-weight:750;text-decoration:none}
+.mountain-source-link:hover{text-decoration:underline}
+.mountain-road-details{margin-top:16px;font-size:13px;line-height:1.5;color:var(--club-ink);overflow-wrap:anywhere}
+.mountain-road-details p+p{margin-top:6px}
+.mountain-road-age{font-weight:650;color:#775c32!important}
+.mountain-timeline-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin-top: 18px;
+  scrollbar-width: thin;
+}
+
+.mountain-timeline-scroll:focus-visible { outline: 3px solid var(--club-seal); outline-offset: 3px }
+
+.mountain-chart {
+  min-width: 48rem;
+  padding-bottom: 6px;
+}
+
+.mountain-blocks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--club-wash);
+}
+
+.mountain-block {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  padding: 10px 8px;
+  border-top: 2px solid var(--club-ink);
+  text-align: center;
+}
+
+.mountain-block + .mountain-block,
+.mountain-day:nth-child(5n + 6) { border-inline-start: 1px solid var(--club-rule) }
+
+.mountain-block > span { color: var(--club-secondary); font-size: 12px; font-weight: 700 }
+.mountain-block strong { color: var(--club-ink); font-size: 25px; line-height: 1.1; letter-spacing: -.6px }
+.mountain-block strong small { font-size: 13px; letter-spacing: 0 }
+.mountain-block > small { color: var(--club-secondary); font-size: 11px; line-height: 1.4 }
+
+.mountain-days {
+  display: grid;
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+  padding: 0;
+  list-style: none;
+}
+
+.mountain-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  color: var(--club-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mountain-bar-track {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  height: 6.25rem;
+  border-bottom: 1px solid var(--club-rule);
+}
+
+.mountain-outlook [data-accumulation="snow"] {
+  --accumulation-fill: #2679b7;
+  --accumulation-text: #195b8d;
+}
+
+.mountain-outlook [data-accumulation="wet"] {
+  --accumulation-fill: #8159a8;
+  --accumulation-text: #6b3d93;
+}
+
+.mountain-outlook [data-accumulation="heavy"] {
+  --accumulation-fill: #b68018;
+  --accumulation-text: #855906;
+}
+
+.mountain-day-amount { color: var(--accumulation-text, var(--club-ink)); font-size: 13px; font-weight: 700; white-space: nowrap }
+
+.mountain-bar {
+  flex: none;
+  width: min(64%, 36px);
+  height: calc(.72 * var(--bar-height));
+  border-radius: 4px 4px 0 0;
+  background: var(--accumulation-fill, var(--club-ink));
+}
+
+.mountain-bar-missing { height: 0; border-bottom: 2px dashed #8aa5a8; background: none }
+.mountain-day-label { margin-top: 3px; color: var(--club-secondary); font-weight: 700 }
+.mountain-day small { font-size: 11px }
+
+.mountain-day .mountain-day-models,
+.mountain-day .mountain-day-range {
+  max-width: 100%;
+  min-height: 11px;
+  color: var(--club-secondary);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.mountain-accumulation-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0 0;
+  padding: 0;
+  color: var(--club-secondary);
+  font-size: 12px;
+  list-style: none;
+}
+
+.mountain-accumulation-key li::before {
+  display: inline-block;
+  width: .75em;
+  height: .75em;
+  margin-inline-end: .4em;
+  border-radius: 2px;
+  background: var(--accumulation-fill);
+  content: '';
+}
+
+.mountain-outlook>.live-source-status{margin-top:9px}
+@media(max-width:759px){
+ body[data-page="stevens"] #pageContent.cloud-page{padding:12px 14px 32px}
+ body[data-live] #pageContent.cloud-page>.cloud-evidence-nav{margin:16px 0 18px;gap:0}
+ .cloud-page .cloud-evidence-nav a{padding-inline:3px;font-size:12px}
+ .mountain-panel{padding:19px 17px;border-radius:14px;margin-bottom:15px}
+ .mountain-panel h2{font-size:20px}
+ .mountain-condition-grid{grid-template-columns:1fr;gap:10px;margin-top:16px}
+ .mountain-condition-grid>section{padding:15px}
+ .mountain-timeline-scroll{margin-top:14px}
+ .mountain-block strong{font-size:22px}
+}

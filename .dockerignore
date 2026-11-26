@@ -1,0 +1,15 @@
+*
+!Dockerfile
+!LICENSE
+!package.json
+!server.mjs
+!src/
+!src/**
+!public/
+!public/**
+!tests/
+!tests/**
+!deploy/
+!deploy/cloudflare-pilot/
+!deploy/cloudflare-pilot/worker.mjs
+!deploy/cloudflare-pilot/schema.sql

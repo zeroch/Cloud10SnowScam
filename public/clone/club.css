@@ -1,0 +1,150 @@
+@font-face {
+  font-family: 'Clear Sans'; src: url('/clone/assets/e1b98fcd8132a458.woff') format('woff');
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: 'Clear Sans'; src: url('/clone/assets/9e6d741b03b06808.woff') format('woff');
+  font-style: normal; font-weight: 500; font-display: swap;
+}
+@font-face {
+  font-family: 'Clear Sans'; src: url('/clone/assets/817d94e171157e1b.woff') format('woff');
+  font-style: normal; font-weight: 700; font-display: swap;
+}
+:root {
+  --club-paper: #fafbfc;
+  --club-sheet: #fff;
+  --club-ink: #222526;
+  --club-secondary: #555b5d;
+  --club-rule: #cdd2d4;
+  --club-wash: #edf0f1;
+  --club-hover: #f1f4f5;
+  --club-seal: #923a2e;
+  --club-display: Baskerville, Georgia, 'Songti SC', 'Noto Serif CJK SC', serif;
+  --club-sans: 'Clear Sans', system-ui, 'PingFang SC', sans-serif;
+  --club-gutter: clamp(16px, 4vw, 48px);
+  --club-width: 1080px;
+}
+
+.club-signature {
+  display: inline-flex; flex: none; align-items: center; gap: 9px;
+  color: var(--club-ink); text-decoration: none; white-space: nowrap;
+}
+.club-emblem {
+  position: relative; display: block; width: 51px; height: 51px;
+  flex: none; overflow: hidden; mix-blend-mode: multiply;
+}
+/* Frame the ink inside the original square JPEG, keeping its strokes intact. */
+.club-signature .club-emblem img {
+  position: absolute; left: -24%; top: -25%; display: block;
+  width: 156%; max-width: none; height: auto;
+}
+.club-lettering { display: grid; color: var(--club-ink); font: 600 30px/.92 var(--club-display); letter-spacing: -.055em; }
+.club-lettering small {
+  margin: 5px 0 0 2px; color: var(--club-seal);
+  font: 700 .75rem/1 var(--club-sans); letter-spacing: .16em; text-transform: uppercase;
+}
+.club-skip {
+  position: absolute; top: 4px; left: 8px; z-index: 10; transform: translateY(-150%);
+  padding: 10px 16px; background: var(--club-ink); color: white;
+}
+.club-skip:focus { transform: none; }
+
+.club-landscape {
+  position: relative; isolation: isolate;
+  background-color: var(--club-paper);
+}
+.club-landscape::before {
+  content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+  background: url('/clone/brand/cascade-ink.webp') no-repeat right center / auto 99%;
+  mix-blend-mode: multiply;
+}
+html:lang(zh-CN) .club-landscape h1 { letter-spacing: -.025em; }
+
+body[data-live] {
+  background: var(--club-paper); color: var(--club-ink); font-family: var(--club-sans);
+  --cloud-ink: var(--club-ink); --cloud-text: var(--club-ink); --cloud-muted: var(--club-secondary);
+  --cloud-teal: var(--club-seal); --cloud-line: var(--club-rule);
+  --clould-ink: var(--club-ink); --clould-muted: var(--club-secondary);
+}
+body[data-live] .clould-nav {
+  min-height: 76px; padding: 6px max(var(--club-gutter), calc((100vw - var(--club-width)) / 2));
+  background: var(--club-paper); border-color: var(--club-rule); color: var(--club-ink); font-family: var(--club-sans);
+}
+body[data-live] .clould-menu { border: 1px solid var(--club-rule); border-radius: 4px; }
+@media (min-width: 992px) {
+  body[data-live] .clould-nav-links { margin-inline-start: 0; }
+}
+body[data-live] #pageContent.cloud-page {
+  box-sizing: border-box; max-width: calc(var(--club-width) + 2 * var(--club-gutter));
+  padding-inline: var(--club-gutter);
+}
+body[data-live] .clould-footer {
+  padding-inline: max(var(--club-gutter), calc((100vw - var(--club-width)) / 2));
+  border-top: 1px solid var(--club-rule); background: var(--club-wash); color: var(--club-ink);
+}
+.clould-footer .clould-footer-sources, .clould-footer .clould-footer-sources small { color: var(--club-secondary); }
+.clould-footer .clould-footer-sources a { color: var(--club-seal); }
+
+.cloud-page .tomorrow-heading.club-landscape {
+  display: flex; align-items: center; min-height: clamp(145px, 16vw, 198px);
+  padding: 18px 0; margin: 0 0 18px; border-bottom: 2px solid var(--club-ink);
+}
+.cloud-page .tomorrow-heading.club-landscape h1 {
+  font: 500 clamp(2.75rem, 5.4vw, 4.5rem)/1.08 var(--club-display);
+  letter-spacing: -.045em; margin: .1em 0;
+}
+.cloud-page .tomorrow-horizons { width: fit-content; max-width: 100%; margin: 0 0 18px; }
+.cloud-page .cloud-tomorrow, .cloud-page .mountain-panel { color: var(--club-ink); }
+.cloud-tomorrow .forecast-condition[data-condition][data-selected="true"] .tomorrow-icon { color: inherit; }
+.cloud-page :is(.forecast-section-heading h2, .os-card > header h2, .mountain-panel h2, .clould-camera-card h2) {
+  font-family: var(--club-display); font-weight: 600; letter-spacing: -.025em;
+}
+.cloud-page .mountain-panel h2 { font-size: clamp(1.5rem, 2.4vw, 1.875rem); }
+.cloud-page :is(.mountain-panel, .forecast-summary-card, .Card__body, .clould-camera-card) { border-radius: 5px; }
+.cloud-page .mountain-condition-grid > section { border-radius: 4px; }
+
+body.club-desk {
+  --paper: var(--club-paper); --ink: var(--club-ink); --text: var(--club-ink);
+  --muted: var(--club-secondary); --line: var(--club-rule); --teal: var(--club-seal); --radius: 5px;
+  background: var(--paper); color: var(--text); font-family: var(--club-sans);
+}
+.club-desk :is(h1, .decision h2, .section-heading h2, .station h3, .reference > strong) { font-family: var(--club-display); }
+.club-desk .intro { background: var(--club-paper); border-bottom: 2px solid var(--club-ink); margin-bottom: 12px; }
+.club-desk .eyebrow, .club-desk .intro h1 span { color: var(--club-seal); }
+.club-desk .decision-next .eyebrow { color: var(--club-paper); }
+.club-desk .reference { background: var(--club-wash); }
+.club-desk .intro h1 { font-weight: 500; }
+.club-desk .refresh { border-radius: 4px; border-color: var(--club-rule); }
+.club-desk :is(.segmented, .chart-inspection) { background: var(--club-wash); }
+.club-desk :focus-visible { outline-color: var(--club-seal); }
+@media (min-width: 621px) {
+  .club-desk .intro.club-landscape::before {
+    left: 24%; right: clamp(170px, 19vw, 240px);
+    mask-image: linear-gradient(90deg, transparent, black 30%, black 85%, transparent);
+  }
+  .club-desk .reference { background: transparent; }
+}
+
+@media (max-width: 759px) {
+  .club-emblem { height: 41px; width: 41px; }
+  .club-lettering { font-size: 25px; }
+  .club-lettering small { margin-top: 3px; }
+  .club-landscape::before {
+    left: 46%; background-size: auto 92%; background-position: 74% center;
+    mask-image: linear-gradient(90deg, transparent, rgb(0 0 0 / .12) 20%, #000 66%);
+  }
+  body[data-live] .clould-nav { min-height: 60px; padding-inline: var(--club-gutter); }
+  .cloud-page .tomorrow-heading.club-landscape { min-height: 108px; margin-bottom: 14px; }
+  .cloud-page .tomorrow-heading.club-landscape h1 { font-size: clamp(1.9rem, 7.7vw, 2.8rem); }
+  .cloud-page .tomorrow-heading.club-landscape p { max-inline-size: 27ch; text-wrap: balance; }
+  .cloud-page .tomorrow-horizons { width: 100%; }
+  .cloud-page .cloud-evidence-nav a { flex: 1 0 auto; min-width: 44px; padding-inline: 6px; font-size: .875rem; }
+}
+@media (max-width: 620px) {
+  .club-desk .intro.club-landscape::before { bottom: 47%; }
+}
+@media (max-width: 380px) {
+  .club-desk .site-header { gap: 6px; padding-inline: var(--club-gutter); }
+  .club-desk .refresh { width: 44px; min-height: 44px; justify-content: center; padding: 0; }
+  .club-desk .refresh span { display: none; }
+}

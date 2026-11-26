@@ -1,0 +1,17 @@
+#forecast-language {
+  flex: none;
+  margin-inline-start: auto;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 1px solid var(--club-rule);
+  border-radius: 4px;
+  background: var(--club-paper);
+  color: var(--club-ink);
+  font: 500 14px/1.4 var(--club-sans);
+  cursor: pointer;
+}
+#forecast-language:focus-visible { outline: 3px solid var(--club-seal); outline-offset: 2px; }
+#forecast-language + #compare-menu, #forecast-language + .clould-menu { margin-inline-start: 4px; }
+@media (max-width: 620px) {
+  html:lang(zh-CN) .cloud-page .cloud-evidence-nav a { min-inline-size: 44px; padding-inline: 9px; }
+}

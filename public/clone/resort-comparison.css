@@ -1,0 +1,202 @@
+:root {
+  font-family: var(--club-sans);
+  color: var(--club-ink);
+  background: var(--club-paper);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body, h1, h2, p, ul { margin: 0; }
+button, select { font: inherit; }
+button, summary { cursor: pointer; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+button[aria-disabled="true"] { cursor: wait; }
+:is(a, button, select, summary):focus-visible { outline: 3px solid var(--club-seal); outline-offset: 3px; }
+main:focus { outline: 0; }
+main:focus-visible .compare-title h1 { text-decoration: underline var(--club-seal) 2px; text-underline-offset: .12em; }
+.compare-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.compare-topbar { border-bottom: 1px solid var(--club-rule); }
+.compare-topbar nav, main {
+  width: min(calc(100% - 2 * var(--club-gutter)), var(--club-width));
+  margin-inline: auto;
+}
+.compare-topbar nav {
+  position: relative; z-index: 3; min-height: 76px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding-block: 5px; background: var(--club-paper);
+}
+.compare-actions { display: flex; align-items: center; gap: 6px; margin-inline-start: auto; }
+#compare-menu {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; margin-inline-start: auto; padding: 0 13px;
+  background: transparent; color: var(--club-ink); border: 1px solid var(--club-rule);
+  border-radius: 4px; font-size: .875rem; font-weight: 700;
+}
+#compare-menu:is(:hover, [aria-expanded="true"]) { background: var(--club-wash); border-color: var(--club-ink); }
+#compare-menu-links {
+  position: absolute; inset: calc(100% - 5px) 0 auto auto; z-index: 5;
+  display: grid; min-width: min(16rem, 100%); padding: 5px;
+  background: var(--club-sheet); border: 1px solid var(--club-rule);
+  border-top: 3px solid var(--club-ink); box-shadow: 0 8px 18px #26241c12;
+}
+#compare-menu-links a { padding: 11px 14px; min-height: 44px; text-decoration: none; font-size: .9375rem; }
+#compare-menu-links a:is(:hover, [aria-current]) { color: var(--club-seal); background: var(--club-wash); }
+
+main { padding-bottom: 36px; scroll-margin-top: 8px; }
+.compare-title {
+  display: grid; align-content: center; justify-items: start;
+  min-height: clamp(175px, 19vw, 245px); padding-block: 24px;
+}
+.compare-title h1 {
+  margin: .14em 0 .13em; color: var(--club-ink);
+  font: 500 clamp(3.25rem, 6.2vw, 5.5rem)/1.03 var(--club-display);
+  letter-spacing: -.055em;
+}
+.compare-title > p:last-child { color: var(--club-secondary); font-size: clamp(.875rem, 1.4vw, 1.0625rem); }
+
+.compare-report { border-top: 2px solid var(--club-ink); }
+.compare-toolbar {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: 12px 24px; padding: 20px 0 18px;
+}
+.compare-period-line { order: -1; }
+#compare-period {
+  font: 600 clamp(1.375rem, 2.2vw, 1.875rem)/1.17 var(--club-display);
+  letter-spacing: -.035em;
+}
+.compare-window, .compare-control-label, .compare-metadata, .compare-notice {
+  color: var(--club-secondary); font-size: .8125rem; line-height: 1.45;
+}
+.compare-window { margin-top: 4px; }
+.compare-controls { display: grid; gap: 5px; }
+.compare-control-label { font-size: .75rem; font-weight: 600; }
+.compare-horizons, .compare-dates { display: flex; flex-wrap: wrap; gap: 2px; }
+.compare-horizons { padding: 3px; background: var(--club-wash); border: 1px solid var(--club-rule); border-radius: 5px; }
+.compare-horizons button, .compare-dates button {
+  flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 6px 14px;
+  background: transparent; border: 0; border-radius: 3px;
+  color: var(--club-secondary); font-size: .875rem; font-weight: 600;
+}
+.compare-horizons button:hover, .compare-dates button:hover { color: var(--club-seal); }
+.compare-horizons [aria-current] { background: var(--club-ink); color: var(--club-sheet); }
+.compare-horizons [aria-current]:hover { color: white; }
+.compare-dates button { padding-inline: 8px; font-size: .8125rem; border-bottom: 2px solid transparent; border-radius: 0; }
+.compare-dates [aria-pressed="true"] { color: var(--club-seal); border-bottom-color: currentColor; }
+.compare-notice { margin-bottom: 8px; }
+
+.compare-report {
+  --columns: minmax(0, 1.65fr) minmax(0, .9fr) minmax(0, 1.05fr) minmax(0, 1.15fr) 1rem;
+  --cell-inset: clamp(12px, 1.5vw, 23px);
+}
+.compare-columns, .resort-row {
+  display: grid; grid-template-columns: var(--columns);
+  padding-inline: var(--cell-inset); column-gap: clamp(12px, 2vw, 28px);
+}
+.compare-columns {
+  padding-block: 9px; background: var(--club-wash); border-block: 1px solid var(--club-rule);
+  color: var(--club-secondary); font-size: .75rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.resort-comparison-list { list-style: none; padding: 0; }
+.resort-row {
+  position: relative; align-items: center; min-height: 82px; padding-block: 14px;
+  border-bottom: 1px solid var(--club-rule); text-decoration: none; background: var(--club-sheet);
+}
+.resort-row:hover, .resort-row:focus-visible { background: var(--club-hover); }
+.resort-row:focus-visible { z-index: 1; outline-offset: -3px; }
+.resort-identity { grid-area: 1 / 1 / 3 / 2; min-width: 0; }
+.resort-identity h2 {
+  color: var(--club-ink); font: 600 clamp(1.25rem, 2vw, 1.625rem)/1.15 var(--club-display);
+  letter-spacing: -.025em; overflow-wrap: anywhere;
+}
+.resort-identity > p, .resort-range, .resort-note { color: var(--club-secondary); font-size: .78125rem; line-height: 1.45; }
+.resort-identity > p { margin-top: 3px; }
+.resort-figure {
+  grid-column: 2; grid-row: 1; display: flex; align-items: baseline; gap: 4px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.resort-amount { font: 600 2rem/1 var(--club-display); letter-spacing: -.04em; }
+.resort-figure > span { font-size: .8125rem; color: var(--club-secondary); }
+.resort-snow-track { grid-column: 2; grid-row: 2; width: min(100%, 7.5rem); height: 3px; align-self: start; margin-top: 5px; background: var(--club-rule); }
+.resort-snow-track > div { height: 100%; background: var(--club-ink); }
+.resort-row[data-snow-quality="unknown"] .resort-snow-track > div { background: var(--club-secondary); }
+.resort-meta { display: contents; }
+.resort-agreement, .resort-quality { font-size: .875rem; line-height: 1.4; }
+.resort-models { grid-area: 1 / 3 / 3 / 4; }
+.resort-conditions { grid-area: 1 / 4 / 3 / 5; }
+.resort-agreement { color: var(--club-secondary); }
+.resort-agreement strong { color: var(--club-ink); }
+.resort-model-count { white-space: nowrap; }
+.resort-quality { color: var(--quality); font-weight: 700; }
+[data-snow-quality] { --quality: #5e615b; }
+[data-snow-quality="good"] { --quality: #176183; }
+[data-snow-quality="excellent"] { --quality: #945105; }
+[data-snow-quality="rain"] { --quality: #35663f; }
+[data-snow-quality="wet"] { --quality: #70508b; }
+.resort-quality::before, .compare-quality-colors li::before {
+  content: ''; display: inline-block; width: .52em; height: .52em; margin-right: .5em;
+  vertical-align: .08em; background: var(--quality); border-radius: 50%;
+}
+.resort-chevron { grid-area: 1 / 5 / 3 / 6; width: 13px; height: 13px; justify-self: end; opacity: .7; }
+.resort-range, .resort-note { margin-top: 4px; }
+.resort-note { color: #795331; }
+.compare-metadata { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 16px; margin: 10px 0 20px; font-size: .75rem; }
+
+.compare-foot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; column-gap: 30px; }
+.compare-foot details { border-top: 1px solid var(--club-rule); font-size: .875rem; line-height: 1.55; }
+.compare-foot summary {
+  display: flex; align-items: center; gap: 12px; min-height: 48px;
+  color: var(--club-ink); font-weight: 700; list-style: none;
+}
+.compare-foot summary::-webkit-details-marker { display: none; }
+.compare-chevron { width: 12px; height: 12px; margin-left: auto; transform: rotate(90deg); }
+details[open] .compare-chevron { transform: rotate(-90deg); }
+.compare-foot details > p, .compare-foot details > ul { margin: 0 0 12px; color: var(--club-secondary); }
+.compare-quality-colors { display: flex; flex-wrap: wrap; gap: 5px 15px; padding: 0; list-style: none; }
+.compare-sources ul { list-style: none; padding: 0; }
+.compare-sources li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 14px; padding: 7px 0; border-bottom: 1px solid var(--club-rule); }
+.compare-foot a { color: var(--club-seal); text-underline-offset: 3px; }
+#compare-refresh { min-height: 44px; padding: 8px 13px; border: 1px solid var(--club-ink); border-radius: 3px; background: var(--club-sheet); color: var(--club-ink); }
+
+@media (max-width: 699px) {
+  .compare-topbar nav { min-height: 60px; gap: 5px; }
+  #compare-menu { padding: 0 8px; }
+  .compare-title { min-height: 112px; padding-block: 16px; }
+  .compare-title h1 { font-size: clamp(2.125rem, 8vw, 3.3rem); }
+  .compare-title > p:last-child { max-inline-size: min(28ch, 64%); font-size: .8125rem; text-wrap: balance; }
+  .compare-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 13px; padding: 12px 0 10px; }
+  .compare-controls { min-width: 0; }
+  .compare-control-label { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+  .compare-horizons button { flex: 1 1 5em; padding-inline: 6px; }
+  .compare-dates button { flex: 1 1 3em; padding-inline: 2px; }
+  .compare-period-line { order: 0; }
+  .compare-window { margin-top: 2px; }
+  .compare-columns { display: none; }
+  .resort-comparison-list { border-top: 1px solid var(--club-rule); }
+  .resort-row {
+    grid-template-columns: minmax(0, 1fr) auto 10px; min-height: 0;
+    column-gap: 7px; padding: 9px 10px;
+  }
+  .resort-identity { grid-area: 1 / 1 / 2 / 2; }
+  .resort-identity h2 { font-size: 1.25rem; }
+  .resort-identity > p { font-size: .75rem; margin-top: 1px; }
+  .resort-figure { grid-area: 1 / 2 / 2 / 3; justify-self: end; }
+  .resort-amount { font-size: 1.8125rem; }
+  .resort-chevron { grid-area: 1 / 3 / 2 / 4; width: 9px; height: 9px; }
+  .resort-meta {
+    grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap;
+    align-items: baseline; justify-content: space-between; gap: 2px 8px; margin-top: 3px;
+  }
+  .resort-agreement, .resort-quality { font-size: .78125rem; }
+  .resort-conditions { margin-left: auto; text-align: right; }
+  .resort-snow-track { grid-column: 1 / -1; grid-row: 3; width: 100%; margin-top: 4px; }
+  .compare-metadata { flex-direction: column; margin: 8px 0 16px; }
+  .compare-foot { grid-template-columns: 1fr; }
+}
+@media (max-width: 420px) {
+  #compare-menu { width: 44px; justify-content: center; }
+  #compare-menu span { display: none; }
+}

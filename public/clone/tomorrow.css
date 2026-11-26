@@ -1,0 +1,88 @@
+/* Tomorrow: approved 2026-10-16 design. Exact evidence stays in Details. */
+body[data-live]{background:#fafcff}
+body[data-live] .clould-nav{position:sticky;min-height:64px;padding:10px max(24px,calc((100vw - 1120px)/2));background:#fafcff;color:#082139;box-shadow:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body[data-live] .clould-nav-links>a{color:#596c80}
+body[data-live] .clould-nav-links>a:hover,body[data-live] .clould-nav-links>a[aria-current="page"]{color:#082139;border-bottom-color:#087be7}
+body[data-live] .clould-menu{width:44px;height:44px;min-height:44px;border:0}
+body[data-live] .clould-menu img{filter:none;width:22px;height:22px}
+body[data-live] .clould-nav :focus-visible{outline:3px solid #087be7;outline-offset:4px}
+#pageContent.cloud-page{padding-inline:24px}
+.cloud-page .cloud-tomorrow{--tomorrow-ink:#082139;--tomorrow-muted:#596c80;--tomorrow-blue:#087be7;--tomorrow-amber:#a95f00;--tomorrow-teal:#097b71;--tomorrow-line:#dfedf6;max-width:520px;margin:0 auto 24px;color:var(--tomorrow-ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.4;font-size:16px}
+.cloud-tomorrow :is(h1,h2,p){margin:0}
+.cloud-tomorrow .tomorrow-heading{padding-top:12px}
+.cloud-tomorrow .tomorrow-heading h1{color:var(--tomorrow-ink);font-size:30px;font-weight:750;letter-spacing:-1.1px;line-height:1.2}
+.cloud-tomorrow .tomorrow-heading>p{font-size:17px;line-height:1.4;margin-top:6px;color:var(--tomorrow-muted)}
+.cloud-tomorrow .tomorrow-snow{padding:22px 0 20px}
+.cloud-tomorrow :is(.tomorrow-snow,.tomorrow-agreement,.tomorrow-condition) h2{font-size:17px;line-height:1.4;font-weight:650;letter-spacing:-.35px;color:var(--tomorrow-ink)}
+.cloud-tomorrow .tomorrow-amount-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;min-height:116px;flex-wrap:wrap}
+.cloud-tomorrow .tomorrow-amount{display:flex;align-items:baseline;gap:3px;line-height:1;color:var(--tomorrow-blue);letter-spacing:-4px;max-width:100%;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.cloud-tomorrow .tomorrow-amount strong{font-size:136px;line-height:.92;font-weight:750;color:inherit}
+.cloud-tomorrow .tomorrow-weather{width:86px;height:92px;object-fit:contain;flex-shrink:0}
+.cloud-tomorrow .tomorrow-median{color:var(--tomorrow-muted);font-size:15px;line-height:1.47;margin-top:4px}
+.cloud-tomorrow .tomorrow-window{color:var(--tomorrow-muted);font-size:16px;line-height:1.5;margin-top:10px}
+.cloud-tomorrow .tomorrow-agreement{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-block:1px solid var(--tomorrow-line);padding:22px 0;min-height:92px}
+.cloud-tomorrow .tomorrow-agreement-value{display:flex;align-items:center;gap:9px;color:var(--tomorrow-amber);flex-shrink:0;line-height:1.2}
+.cloud-tomorrow .tomorrow-agreement-value strong{font-size:38px;font-weight:700;letter-spacing:-1px}
+.cloud-tomorrow .tomorrow-agreement-value .tomorrow-icon{width:42px;height:42px}
+.cloud-tomorrow [data-model-agreement="high"]{color:var(--tomorrow-teal)}
+.cloud-tomorrow [data-model-agreement="unknown"]{color:var(--tomorrow-muted)}
+.cloud-tomorrow [data-model-agreement="unknown"] strong{font-size:22px;letter-spacing:-.5px}
+.cloud-tomorrow [data-model-agreement="moderate"] strong{font-size:29px}
+.cloud-tomorrow [data-model-agreement="moderate"] .tomorrow-icon{width:28px;height:28px}
+.cloud-tomorrow .tomorrow-condition{padding:24px 0 18px;border-bottom:1px solid var(--tomorrow-line)}
+.cloud-tomorrow .tomorrow-condition>header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cloud-tomorrow .tomorrow-condition>header>span{font-size:14px;color:var(--tomorrow-muted);white-space:nowrap}
+.cloud-tomorrow .tomorrow-condition-scale{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,5.2em),1fr));row-gap:14px;margin-top:14px;isolation:isolate}
+.cloud-tomorrow [data-condition]{position:relative;display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:8px;min-height:56px;padding:8px 4px;font-size:16px;font-weight:500;overflow-wrap:anywhere}
+.cloud-tomorrow [data-condition="dry"]{background:#eaf5fd;color:#596c80;border-radius:12px 0 0 12px}
+.cloud-tomorrow [data-condition="dry"] .tomorrow-icon{color:#389cdd}
+.cloud-tomorrow [data-condition="normal"]{background:#edf7f5;color:var(--tomorrow-muted)}
+.cloud-tomorrow [data-condition="wet"]{background:#fcf4e8;color:#9c5900;border-radius:0 12px 12px 0}
+.cloud-tomorrow [data-condition][data-selected="true"]{border-radius:12px;background:var(--tomorrow-teal);color:white;font-weight:650}
+.cloud-tomorrow [data-condition="dry"][data-selected="true"]{background:#0872ce}
+.cloud-tomorrow [data-condition="wet"][data-selected="true"]{background:var(--tomorrow-amber)}
+.cloud-tomorrow [data-condition][data-selected="true"] .tomorrow-icon{color:white}
+.cloud-tomorrow [data-condition][data-selected="true"]::after{content:"";position:absolute;width:44px;height:4px;border-radius:2px;background:inherit;bottom:-10px;left:calc(50% - 22px)}
+.cloud-tomorrow .tomorrow-condition-note{min-height:22px;margin-top:16px;text-align:center;color:var(--tomorrow-muted);font-size:14px;line-height:1.57}
+.cloud-tomorrow .tomorrow-details{margin-top:18px}
+.cloud-tomorrow .tomorrow-details>summary{list-style:none;display:flex;align-items:center;gap:14px;min-height:52px;padding:10px 14px;border-radius:9px;background:#edf5fc;font-size:18px;font-weight:600;color:var(--tomorrow-ink);cursor:pointer}
+.cloud-tomorrow .tomorrow-details>summary::-webkit-details-marker{display:none}
+.cloud-tomorrow .tomorrow-details>summary .tomorrow-icon-list{width:28px;height:28px}
+.cloud-tomorrow .tomorrow-details>summary .tomorrow-icon-chevron{margin-left:auto;width:20px;height:20px;transition:transform .15s}
+.cloud-tomorrow .tomorrow-details[open]>summary .tomorrow-icon-chevron{transform:rotate(90deg)}
+.cloud-tomorrow .tomorrow-details>summary:hover{background:#e3effa}
+.cloud-tomorrow .tomorrow-details-body{padding:12px 0 20px;overflow-wrap:anywhere}
+.cloud-tomorrow .tomorrow-location{color:var(--tomorrow-muted);font-size:14px;line-height:1.57;margin-top:12px}
+.cloud-tomorrow .tomorrow-horizons{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,5em),1fr));gap:8px;margin-top:16px}
+.cloud-tomorrow .tomorrow-horizons button{position:relative;min-height:46px;padding:9px 2px 12px;border:0;border-radius:0;background:transparent;color:var(--tomorrow-muted);font:inherit;font-size:16px;cursor:pointer}
+.cloud-tomorrow .tomorrow-horizons [aria-current]{color:#006bcf;font-weight:650}
+.cloud-tomorrow .tomorrow-horizons [aria-current]::after{content:"";position:absolute;height:3px;bottom:0;left:0;right:0;background:#087be7;border-radius:2px}
+.cloud-tomorrow .tomorrow-horizons button:hover{color:#006bcf;background:#edf5fc}
+.cloud-tomorrow .tomorrow-notice{margin-top:16px;color:var(--tomorrow-amber);font-size:14px;line-height:1.5}
+.cloud-tomorrow .tomorrow-amount-word{white-space:normal;letter-spacing:-1px}
+.cloud-tomorrow .tomorrow-amount-word strong{font-size:38px;line-height:1.15}
+.cloud-tomorrow [data-snowfall-value="<0.1"] strong,.cloud-tomorrow [data-snowfall-value="<1"] strong{font-size:82px;letter-spacing:-4px}
+.cloud-tomorrow[data-forecast-state="stale"] .tomorrow-amount{color:var(--tomorrow-muted)}
+.cloud-tomorrow .tomorrow-report{display:block;margin-top:16px;min-height:44px;color:#006bcf;text-decoration:underline;text-underline-offset:3px;padding-block:12px}
+.cloud-tomorrow .tomorrow-details .cloud-night{display:block;padding:0}
+.cloud-tomorrow .tomorrow-details .cloud-night h2{font-size:24px;margin:18px 0 8px}
+.cloud-tomorrow .tomorrow-details .cloud-night-evidence{padding-top:12px}
+.cloud-tomorrow .tomorrow-details .cloud-night-models{font-size:15px}
+.cloud-tomorrow .tomorrow-details .cloud-night-models :is(td,th){padding-block:9px}
+.cloud-tomorrow .tomorrow-details .cloud-night-facts>div{grid-template-columns:120px 1fr;font-size:14px}
+.cloud-tomorrow .tomorrow-details .cloud-night-details p{margin:12px 0;line-height:1.6}
+.cloud-tomorrow .tomorrow-icon{width:27px;height:27px;flex:none;display:inline-block;background:currentColor;mask:var(--tomorrow-icon) center/contain no-repeat;-webkit-mask:var(--tomorrow-icon) center/contain no-repeat}
+.tomorrow-icon-snow{--tomorrow-icon:url('/clone/icons/phosphor/snowflake.svg')}
+.tomorrow-icon-drop{--tomorrow-icon:url('/clone/icons/phosphor/drop-fill.svg')}
+.tomorrow-icon-split{--tomorrow-icon:url('/clone/icons/phosphor/arrows-split-bold.svg')}
+.cloud-tomorrow .tomorrow-icon-split{transform:rotate(180deg)}
+.tomorrow-icon-check{--tomorrow-icon:url('/clone/icons/phosphor/check-bold.svg')}
+.tomorrow-icon-list{--tomorrow-icon:url('/clone/icons/phosphor/list-bullets.svg')}
+.tomorrow-icon-chevron{--tomorrow-icon:url('/clone/icons/phosphor/caret-right-bold.svg')}
+.tomorrow-sample{font-size:14px;font-weight:400;color:#596c80;margin-left:auto}
+body[data-design-sample] .clould-menu,body[data-design-sample] .clould-nav-links{display:none}
+@media(min-width:760px){.cloud-tomorrow .tomorrow-heading{padding-top:28px}.cloud-tomorrow .tomorrow-snow{padding-top:32px}.cloud-tomorrow .tomorrow-weather{width:108px;height:116px}.cloud-tomorrow .tomorrow-amount strong{font-size:146px}.cloud-tomorrow .tomorrow-horizons{margin-bottom:32px}.cloud-page .cloud-evidence-nav{margin-top:40px}}
+@media(max-width:380px){#pageContent.cloud-page{padding-inline:20px}.cloud-tomorrow .tomorrow-heading h1{font-size:28px}.cloud-tomorrow .tomorrow-amount strong{font-size:112px}.cloud-tomorrow .tomorrow-weather{width:68px;height:74px}.cloud-tomorrow .tomorrow-agreement-value strong{font-size:32px}.cloud-tomorrow .tomorrow-agreement-value .tomorrow-icon{width:30px;height:30px}.cloud-tomorrow .tomorrow-condition>header{align-items:flex-start;flex-wrap:wrap}.cloud-tomorrow [data-condition]{gap:5px;font-size:15px}.cloud-tomorrow [data-condition] .tomorrow-icon{width:22px;height:22px}}
+@media(prefers-reduced-motion:reduce){.cloud-tomorrow .tomorrow-details>summary .tomorrow-icon-chevron{transition:none}}
+.cloud-tomorrow .tomorrow-amount-wide strong{font-size:86px;letter-spacing:-3px}
+@media(max-width:380px){.cloud-tomorrow .tomorrow-amount-wide strong{font-size:68px}}

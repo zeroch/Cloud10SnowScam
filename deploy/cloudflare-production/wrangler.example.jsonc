@@ -1,0 +1,14 @@
+{
+  "name": "cloud10-forecast",
+  "main": "../../dist/cloudflare-production/production.mjs",
+  "compatibility_date": "2026-11-26",
+  "workers_dev": true,
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "cloud10-forecast",
+    "database_id": "YOUR_D1_DATABASE_ID"
+  }],
+  "services": [{ "binding": "ASSETS", "service": "cloud10-forecast-assets" }],
+  "triggers": { "crons": ["0,22-34,52-55 * * * *"] }
+}

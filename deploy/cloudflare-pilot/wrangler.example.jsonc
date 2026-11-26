@@ -1,0 +1,14 @@
+{
+  "name": "cloud10-forecast-pilot",
+  "main": "index.mjs",
+  "compatibility_date": "2026-11-26",
+  "workers_dev": true,
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "cloud10-forecast-pilot",
+    "database_id": "YOUR_D1_DATABASE_ID"
+  }],
+  // Set the days and month for a new 24-hour pilot before enabling its trigger.
+  "triggers": { "crons": ["0,22-30,52-55 * 26,27 NOV *"] }
+}

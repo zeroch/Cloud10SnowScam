@@ -1,0 +1,31 @@
+/* Clould10 identity; forecast cards and data controls keep their existing layout. */
+:root{--clould-ink:#15363f;--clould-mist:#bde8dd;--clould-muted:#647b82}
+html{scroll-padding-top:100px}
+#root.Main__container{--site-header-height:auto}
+#root>.Main__siteContent{width:100%;min-width:0}
+.clould-nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:28px;min-height:76px;padding:12px 32px;background:var(--clould-ink);color:#f3faf8;box-shadow:0 1px 0 #ffffff15}
+.clould-wordmark{display:inline-flex;align-items:center;gap:11px;flex-shrink:0;color:inherit!important;text-decoration:none!important;font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.clould-wordmark img{width:40px;height:40px;display:block}.clould-ten{color:var(--clould-mist);font-weight:400}
+.clould-nav-caption{font-size:12px;color:#c0d3d7;line-height:1.5}
+.clould-nav-links{display:flex;align-items:center;gap:24px;margin-left:auto}
+.clould-nav-links>a{color:#d9e8e9;font-size:14px;text-decoration:none;white-space:nowrap;padding:10px 0;border-bottom:2px solid transparent}
+.clould-nav-links>a:hover,.clould-nav-links>a[aria-current="page"]{color:white;border-bottom-color:var(--clould-mist)}
+.clould-search{position:relative}.clould-search input{font:inherit;font-size:13px;color:#fff;background:#ffffff0c;border:1px solid #ffffff35;border-radius:8px;width:165px;min-height:40px;padding:9px 12px}.clould-search input::placeholder{color:#b9cdd1}
+.clould-menu{display:none}.clould-menu span{width:20px;height:2px;background:var(--clould-mist);display:block}
+.clould-page-header{padding:28px 0 16px;position:relative;z-index:2}
+.clould-heading-row{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.clould-eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:700;color:#637f86;margin:0 0 8px;line-height:1.5}
+.clould-page-header h1{font-size:36px;letter-spacing:-1px;line-height:1.18;font-weight:700;color:var(--clould-ink);margin:0}
+.clould-page-header .SelectFavoriteListDropdown__selectFavoriteListActiveListName{cursor:pointer}.clould-page-header .SelectFavoriteListDropdown__selectFavoriteListActiveListName::after{content:'⌄';display:inline-block;font-size:22px;margin-left:12px;color:#779097;vertical-align:middle}
+.clould-subtitle{font-size:13px;color:var(--clould-muted);margin:10px 0 0}.clould-subtitle>span{margin:0 7px}
+.clould-page-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}.clould-button{border:1px solid #cbd9dc;border-radius:8px;background:white;color:var(--clould-ink);font-size:13px;font-weight:600;min-height:42px;padding:10px 18px;display:inline-flex;align-items:center;text-decoration:none!important;cursor:pointer}.clould-button:hover{background:#edf5f3}.clould-button-primary{background:var(--clould-ink);color:white;border-color:var(--clould-ink)}.clould-button-primary:hover{background:#24545e}
+.clould-section-nav{display:flex;align-items:center;gap:24px;overflow-x:auto;border-bottom:1px solid #dce5e7;margin-top:24px;scrollbar-width:thin}.clould-section-nav a{font-size:13px;font-weight:600;white-space:nowrap;color:#52737d;text-decoration:none;padding:11px 0 14px}.clould-section-nav a:first-child{color:var(--clould-ink);border-bottom:2px solid var(--clould-ink)}.clould-section-nav a:hover{color:#2487b4}
+.clould-camera-card{display:flex;align-items:center;justify-content:space-between;gap:20px;border:1px solid #dce5e7;border-radius:12px;background:#edf4f2;padding:20px 24px;margin:4px 0 22px}.clould-camera-card h2{font-size:19px;color:var(--clould-ink);font-weight:600;margin:0}.clould-camera-card p:last-child{font-size:12px;color:#647b82;margin:7px 0 0}.clould-camera-card>a{font-size:13px;font-weight:600;color:#235d70;white-space:nowrap;text-decoration:none;padding:10px 0}
+.clould-footer{display:flex;align-items:center;justify-content:space-between;gap:32px;background:var(--clould-ink);color:#e5f1ee;padding:32px max(32px,calc((100vw - 1280px)/2));margin-top:36px}.clould-footer .clould-wordmark{font-size:23px}.clould-footer .clould-wordmark img{width:34px;height:34px}.clould-footer p{color:#b6ced0;font-size:12px;margin:12px 0 0}.clould-footer-sources{text-align:right;font-size:12px;color:#b6ced0;line-height:1.6}.clould-footer-sources>div{display:flex;gap:20px;justify-content:flex-end;margin:8px 0}.clould-footer-sources a{color:#e7f4f0;text-decoration:none}.clould-footer-sources small{font-size:10px;color:#a3bfc4}
+.clould-nav :focus-visible,.clould-footer :focus-visible{outline:2px solid var(--clould-mist);outline-offset:4px}
+@media(max-width:1150px){.clould-nav-caption{display:none}.clould-nav{gap:20px}}
+@media(max-width:991px){
+ html{scroll-padding-top:85px}.clould-nav{padding:12px 18px;min-height:68px;flex-wrap:wrap;gap:0}.clould-wordmark{font-size:24px;gap:8px}.clould-wordmark img{width:36px;height:36px}.clould-menu{margin-left:auto;width:44px;height:44px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;border:1px solid #ffffff25;border-radius:8px;background:transparent}.clould-nav-links{display:none;margin:16px 0 4px;width:100%;flex-wrap:wrap;gap:8px 24px}.clould-nav-links.is-open{display:flex}.clould-search{width:100%;margin-top:8px}.clould-search input{width:100%;font-size:16px;min-height:44px}.clould-nav-links>a{font-size:14px;min-height:44px}
+ .clould-page-header{padding:22px 0 12px}.clould-page-header h1{font-size:30px}.clould-heading-row{gap:12px}.clould-page-actions{flex-direction:column;gap:6px}.clould-button{min-height:40px;font-size:12px;padding:8px 12px}.clould-eyebrow{font-size:9px;letter-spacing:1.2px}.clould-subtitle{font-size:11px;max-width:230px;line-height:1.6;margin-top:6px}.clould-subtitle>span{margin:0 3px}.clould-section-nav{margin-top:17px;gap:22px}.clould-section-nav a{font-size:12px;padding:10px 0 12px;min-height:42px}
+ .clould-camera-card{padding:18px;align-items:flex-start;flex-direction:column;gap:7px}.clould-camera-card h2{font-size:18px}.clould-camera-card>a{font-size:12px}.clould-footer{padding:28px 20px;display:block;margin-top:24px}.clould-footer-sources{text-align:left;margin-top:24px;font-size:11px}.clould-footer-sources>div{justify-content:flex-start;gap:22px}.clould-footer-sources small{font-size:10px}
+}

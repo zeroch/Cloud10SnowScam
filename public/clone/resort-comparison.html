@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fafbfc">
+  <meta name="description" content="Compare overnight snowfall, model agreement and estimated snow quality at Stevens Pass, Crystal Mountain, Summit Central and Mt. Baker.">
+  <title>Compare resorts · Cloud10</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/clone/club.css">
+  <link rel="stylesheet" href="/clone/resort-comparison.css">
+</head>
+<body data-page="resort-comparison">
+  <a class="club-skip" href="#live-overnight">Skip to forecasts</a>
+  <header class="compare-topbar">
+    <nav aria-label="Main navigation">
+      <a class="compare-wordmark club-signature" aria-label="Cloud10 home" href="/user/favorites/locations/snow-summary">
+        <span class="club-emblem"><img src="/clone/brand/cloud10-logo.jpg" width="1024" height="1024" alt=""></span>
+        <span class="club-lettering">Cloud10<small>Ski Club</small></span>
+      </a>
+      <div class="compare-actions">
+        <button id="compare-menu" aria-label="Main menu" aria-expanded="false" aria-controls="compare-menu-links">
+          <img src="/clone/icons/bars-3.svg" width="20" height="20" alt=""><span>Resorts</span>
+        </button>
+      </div>
+      <div id="compare-menu-links" hidden>
+        <a href="/user/favorites/locations/snow-summary" aria-current="page">Compare resorts</a>
+        <a href="/location/stevenspass/snow-summary">Stevens Pass</a>
+        <a href="/location/crystalmountain/snow-summary">Crystal Mountain</a>
+        <a href="/location/summitcentral/snow-summary">Summit Central</a>
+        <a href="/location/mtbaker/snow-summary">Mt. Baker</a>
+      </div>
+    </nav>
+  </header>
+  <main id="live-overnight" tabindex="-1">
+    <div id="resort-comparison">
+      <header class="compare-title club-landscape">
+        <h1>Compare resorts</h1>
+        <p>Overnight snowfall in the Washington Cascades</p>
+      </header>
+      <p role="status">Loading forecasts…</p>
+    </div>
+    <noscript>Enable JavaScript to compare the latest forecasts.</noscript>
+  </main>
+  <p id="comparison-status" class="compare-sr-only" role="status" aria-live="polite"></p>
+  <script type="module" src="/clone/resort-comparison.mjs"></script>
+</body>
+</html>

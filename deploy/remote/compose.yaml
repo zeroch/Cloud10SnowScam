@@ -1,0 +1,34 @@
+services:
+  tunnel:
+    # Official multi-platform image, pinned to the verified release digest.
+    image: cloudflare/cloudflared:2026.10.1@sha256:a15a3b50b8dabd57ac2090e9484c0247dba9dfa1f0df4d298d4317f9d69eb2d5
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --protocol
+      - http2
+      - --url
+      - http://cloud10:4173
+    restart: unless-stopped
+    init: true
+    user: "65532:65532"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpu_shares: 128
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+    networks:
+      - cloud10
+
+networks:
+  cloud10:
+    external: true
+    name: cloud10_default

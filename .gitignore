@@ -1,0 +1,35 @@
+.cache/
+node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+.wrangler/
+__pycache__/
+data/
+dist/
+
+# Operator-specific Cloudflare bindings. Share wrangler.example.jsonc.
+/deploy/cloudflare-*/wrangler.jsonc
+
+# Separate hosted checkout and local development tools.
+/sites/
+/.agents/
+/.codex/
+/.impeccable/
+
+# Historical capture sets, design reviews and deployment evidence.
+/design-qa.md
+/docs/research/
+/docs/ux/
+/docs/superpowers/
+/docs/*-verification.md
+/docs/clone-preview.jpg
+/docs/deployment/evidence/
+/docs/deployment/*-private-*.jpg
+/docs/deployment/verification.json
+/docs/deployment/hosting-costs.md
+/docs/deployment/remote-access.md

@@ -1,0 +1,69 @@
+/* A compact snow chart: amounts meet their bars, dates share one baseline. */
+.cloud-page .cloud-horizon{max-width:600px}
+.cloud-horizon .horizon-comparison{margin-top:20px}
+.cloud-horizon .horizon-comparison>h2{font-size:18px;line-height:1.4;font-weight:650;letter-spacing:-.35px;color:var(--tomorrow-ink)}
+.cloud-horizon .horizon-window{font-size:14px;line-height:1.5;color:var(--tomorrow-muted);margin-top:3px}
+.cloud-horizon .horizon-board-scroll{overflow-x:auto;padding:3px 0 1px;margin-top:14px}
+.cloud-horizon .horizon-board{width:100%;min-width:calc(var(--horizon-columns) * 3.4em);table-layout:fixed;border-collapse:collapse;color:var(--tomorrow-ink);font:inherit}
+.cloud-horizon .horizon-board :is(th,td){padding:0;text-align:center;vertical-align:top;border:0;background:transparent}
+.cloud-horizon .horizon-dates-row button{font:inherit;font-size:14px;line-height:1.4;color:var(--tomorrow-muted);border:0;background:transparent;padding:9px 0 5px;min-height:48px;width:100%;cursor:pointer;border-radius:6px}
+.cloud-horizon .horizon-dates-row button:hover{background:#edf5fc}
+.cloud-horizon .horizon-dates-row :is(strong,span){display:block}
+.cloud-horizon .horizon-dates-row strong{font-weight:500}
+.cloud-horizon .horizon-dates-row span{font-weight:650;font-size:19px;color:var(--tomorrow-ink)}
+.cloud-horizon [data-snow-quality="poor"],.cloud-horizon [data-snow-quality="unknown"]{--horizon-quality:#596c80}
+.cloud-horizon [data-snow-quality="good"]{--horizon-quality:#006bcf}
+.cloud-horizon [data-snow-quality="excellent"]{--horizon-quality:#b55600}
+.cloud-horizon [data-snow-quality="rain"]{--horizon-quality:#16733c}
+.cloud-horizon [data-snow-quality="wet"]{--horizon-quality:#7850b4}
+.cloud-horizon .horizon-amount{position:absolute;bottom:calc(var(--horizon-bar-height) + 5px);left:0;width:100%;display:flex;justify-content:center;align-items:baseline;line-height:1.1;letter-spacing:-.6px;color:var(--horizon-quality);font-variant-numeric:tabular-nums}
+.cloud-horizon .horizon-amount strong{font-size:32px;line-height:1;font-weight:700}
+.cloud-horizon .horizon-phase{font-size:14px;line-height:1.4;color:var(--tomorrow-muted);margin-top:3px}
+.cloud-horizon .horizon-board .horizon-inline-agreement td{padding:7px 2px 3px}
+.cloud-horizon .horizon-agreement[data-model-agreement]{font-size:14px;line-height:1.35;color:var(--tomorrow-muted);margin:0;overflow-wrap:normal}
+.cloud-horizon .horizon-agreement[data-model-agreement] strong{font-size:inherit;font-weight:600;letter-spacing:0}
+.cloud-horizon .horizon-board .horizon-inline-condition td{padding:3px 2px 0}
+.cloud-horizon .horizon-condition{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;font-size:16px;line-height:1.35;color:var(--horizon-quality);margin:0}
+.cloud-horizon .horizon-condition strong{font:inherit;font-weight:600}
+.cloud-horizon .horizon-condition[data-morning-condition="unknown"]{font-size:14px;font-weight:400}
+.cloud-horizon .horizon-condition .tomorrow-icon{width:17px;height:17px;flex:0 0 17px}
+.cloud-horizon .horizon-transition{display:block;font-size:14px;line-height:1.35;color:#7850b4;margin-top:4px}
+.cloud-horizon .horizon-quality-unknown{display:block;font-size:14px;line-height:1.35;color:var(--tomorrow-muted);margin-top:4px}
+.cloud-horizon .horizon-board .horizon-snow-row td{padding-top:2.6em}
+.cloud-horizon .horizon-bar-track{height:5.5em;position:relative;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid #9aaab7}
+.cloud-horizon .horizon-bar{height:var(--horizon-bar-height);background:var(--horizon-quality);width:76%;max-width:80px;border-radius:4px 4px 0 0}
+.cloud-horizon .horizon-quality-guide{margin-top:10px;text-align:center}
+.cloud-horizon .horizon-quality-guide>summary{list-style:none;display:flex;justify-content:center;align-items:center;gap:6px;min-height:44px;font-size:14px;font-weight:600;color:#006bcf;cursor:pointer}
+.cloud-horizon .horizon-quality-guide>summary::-webkit-details-marker{display:none}
+.cloud-horizon .horizon-quality-guide>summary .tomorrow-icon{width:14px;height:14px;transform:rotate(90deg)}
+.cloud-horizon .horizon-quality-guide[open]>summary .tomorrow-icon{transform:rotate(-90deg)}
+.cloud-horizon .horizon-quality-guide>p{font-size:14px;line-height:1.5;color:var(--tomorrow-muted);margin:8px auto 12px;max-width:30em}
+.cloud-horizon .horizon-quality-key{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 14px;list-style:none;padding:0;margin:12px 0 0;font-size:14px;line-height:1.5}
+.cloud-horizon .horizon-quality-key li{color:var(--horizon-quality);font-weight:500}
+.cloud-horizon .tomorrow-details{margin-top:10px}
+.cloud-horizon .tomorrow-location{margin-top:9px}
+.cloud-horizon .tomorrow-horizons{margin-top:10px}
+.cloud-horizon .horizon-date-picker{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:16px;font-weight:600;margin:6px 0 18px}
+.cloud-horizon .horizon-date-picker label{font:inherit;margin:0}
+.cloud-horizon .horizon-date-picker select{flex:1;min-width:0;min-height:44px;background:#fafcff;color:var(--tomorrow-ink);font:inherit;border:1px solid #b9cede;border-radius:6px;padding:8px}
+.cloud-horizon .horizon-evidence h2{font-size:22px;font-weight:650}
+.cloud-horizon .horizon-evidence p{font-size:15px;line-height:1.5;margin:10px 0;color:var(--tomorrow-muted)}
+.cloud-horizon .horizon-evidence table{width:100%;margin:16px 0}
+.cloud-horizon .horizon-evidence caption{caption-side:top;text-align:left;font-size:16px;font-weight:650;margin-bottom:8px;color:var(--tomorrow-ink)}
+.cloud-horizon .horizon-detail-link{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:16px;min-height:48px;padding:8px 0;color:#006bcf;text-decoration:underline;text-underline-offset:3px}
+.cloud-horizon .horizon-detail-link .tomorrow-icon{width:16px;height:16px}
+.cloud-horizon[data-horizon="3"] .horizon-board{min-width:16.5em}
+.cloud-horizon[data-horizon="5"] .horizon-amount strong{font-size:24px}
+.cloud-horizon[data-horizon="5"] .horizon-agreement :is(span,strong){display:block}
+.cloud-horizon[data-horizon="5"] .horizon-agreement span{letter-spacing:-.3px}
+.cloud-horizon[data-horizon="5"] .horizon-condition{font-size:14px}
+.cloud-horizon[data-horizon="5"] .horizon-condition .tomorrow-icon{display:none}
+.cloud-horizon .horizon-board [data-snowfall-value^="<"] strong,.cloud-horizon .horizon-board [data-snowfall-value="0.1"] strong{font-size:inherit;letter-spacing:inherit}
+.cloud-horizon .horizon-board [data-snowfall-value^="<"],.cloud-horizon .horizon-board [data-snowfall-value="0.1"]{font-size:28px;align-content:center}
+.cloud-horizon[data-horizon="5"] .horizon-board [data-snowfall-value^="<"],.cloud-horizon[data-horizon="5"] .horizon-board [data-snowfall-value="0.1"]{font-size:20px}
+.cloud-horizon[data-horizon="5"] .horizon-amount-wide strong{font-size:22px}
+#horizon-details{scroll-margin-top:calc(var(--cloud-header-height,64px) + 12px)}
+@media(min-width:760px){.cloud-horizon .horizon-comparison{margin-top:30px}.cloud-horizon .horizon-bar-track{height:7em}.cloud-horizon[data-horizon="5"] .horizon-amount strong{font-size:28px}}
+@media(max-width:359px){body[data-forecast-view="3"] #pageContent.cloud-page,body[data-forecast-view="5"] #pageContent.cloud-page{padding-inline:14px}.cloud-horizon .horizon-quality-key{column-gap:10px}}
+.cloud-horizon[data-horizon="5"] .horizon-board .horizon-amount-wide strong{font-size:22px}
+.cloud-horizon[data-horizon="5"] .horizon-board :is([data-snowfall-value^="<"],[data-snowfall-value="0.1"]) strong{font-size:inherit;letter-spacing:inherit}
