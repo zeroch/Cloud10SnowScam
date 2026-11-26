@@ -681,6 +681,7 @@ export default {
   "Skip to forecasts": "跳到天气预报",
   "Main navigation": "主导航",
   "Cloud10 home": "Cloud10 首页",
+  "Cloud10 wordmark subtitle": "雪圈",
   "Clould10 home": "Clould10 首页",
   "Compare resorts · Cloud10": "雪场对比 · Cloud10",
   "Favorites · Cloud10": "收藏雪场 · Cloud10",

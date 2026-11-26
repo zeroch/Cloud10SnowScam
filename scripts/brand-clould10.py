@@ -19,7 +19,7 @@ def fragment(html):
 
 def wordmark():
     return ('<span class="club-emblem"><img src="/clone/brand/cloud10-logo.jpg" width="1024" height="1024" alt=""></span>'
-            '<span class="club-lettering">Cloud10<small>Ski Club</small></span>')
+            '<span class="club-lettering">Cloud10<small data-i18n="Cloud10 wordmark subtitle">Seattle</small></span>')
 
 
 def navigation(page):

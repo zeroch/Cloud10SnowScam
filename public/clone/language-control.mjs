@@ -15,10 +15,10 @@ function bindShell() {
   const height = resort.elevationFt.toLocaleString('en-US');
   const point = resort.pointLabel + ' ' + height + ' ft';
   const bindings = [];
-  function bind(source, write) {
+  function bind(source, write, messageKey) {
     const text = source.trim();
     if (!text) return;
-    const key = Object.hasOwn(chinese, text) ? text : text.replace(point, '{1}').replace(resort.name, '{0}');
+    const key = messageKey ?? (Object.hasOwn(chinese, text) ? text : text.replace(point, '{1}').replace(resort.name, '{0}'));
     if (!Object.hasOwn(chinese, key)) return;
     bindings.push(() => {
       const localized = displayLanguage === 'en' ? text : t(key, resort.name, t('{0} {1} ft', t(resort.pointLabel), height));
@@ -27,9 +27,11 @@ function bindShell() {
   }
   const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    // The wordmark contains “Cloud”, which is also a weather table heading.
-    if (node.parentElement.closest('script, style, noscript, .compare-wordmark, .clould-wordmark, .brand, [translate="no"]')) continue;
-    bind(node.data, value => { node.data = value; });
+    const parent = node.parentElement;
+    const messageKey = parent.dataset.i18n;
+    // Inside the wordmark, only explicitly labeled text follows the language switch.
+    if (!messageKey && parent.closest('script, style, noscript, .compare-wordmark, .clould-wordmark, .brand, [translate="no"]')) continue;
+    bind(node.data, value => { node.data = value; }, messageKey);
   }
   for (const element of document.querySelectorAll('[aria-label], [title], [alt], meta[name="description"]')) {
     for (const attr of ['aria-label', 'title', 'alt', 'content']) {

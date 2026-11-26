@@ -38,10 +38,20 @@
   position: absolute; left: -24%; top: -25%; display: block;
   width: 156%; max-width: none; height: auto;
 }
-.club-lettering { display: grid; color: var(--club-ink); font: 600 30px/.92 var(--club-display); letter-spacing: -.055em; }
+.club-lettering {
+  display: grid;
+  justify-items: start;
+  row-gap: .1em;
+  color: var(--club-ink);
+  font: 600 30px/.92 var(--club-display);
+  letter-spacing: -.055em;
+}
 .club-lettering small {
-  margin: 5px 0 0 2px; color: var(--club-seal);
-  font: 700 .75rem/1 var(--club-sans); letter-spacing: .16em; text-transform: uppercase;
+  margin: 0;
+  color: var(--club-seal);
+  font: 700 .72em/1.05 var(--club-sans);
+  letter-spacing: normal;
+  text-transform: none;
 }
 .club-skip {
   position: absolute; top: 4px; left: 8px; z-index: 10; transform: translateY(-150%);
@@ -128,7 +138,6 @@ body.club-desk {
 @media (max-width: 759px) {
   .club-emblem { height: 41px; width: 41px; }
   .club-lettering { font-size: 25px; }
-  .club-lettering small { margin-top: 3px; }
   .club-landscape::before {
     left: 46%; background-size: auto 92%; background-position: 74% center;
     mask-image: linear-gradient(90deg, transparent, rgb(0 0 0 / .12) 20%, #000 66%);
