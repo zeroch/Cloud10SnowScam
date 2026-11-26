@@ -2,16 +2,18 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const modules = ['conditions', 'time', 'display', 'advice', 'forecast', 'dashboard-client', 'config', 'provider-core'];
 const asset = 'public/nested/snow notes 雪.txt';
-const privateFiles = ['public/nested/.env', 'public/nested/local notes.txt', 'src/.dev.vars', 'tests/scratch.json'];
+const planned = 'public/nested/planned.txt';
+const stagedEmpty = 'public/staged-empty.txt';
+const privateFiles = [planned, 'public/nested/.env', 'public/nested/local notes.txt', 'src/.dev.vars', 'tests/scratch.json'];
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'cloud10-release-'));
@@ -28,14 +30,16 @@ async function fixture(t) {
     'public/index.html', 'public/clone/favorites.html', 'public/clone/stevens.html', asset,
     ...modules.map(name => 'src/' + name + '.mjs'), 'tests/fixtures/forecast.json', 'tests/dashboard-client.test.mjs'];
   for (const path of required) await put(path, path);
+  await put(stagedEmpty, '');
   await put('tests/dashboard-client.test.mjs', "import '../src/dashboard-client.mjs';");
   await put('.gitignore', '.env\n.dev.vars\n/dist/\n/sites/\n');
   const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
   git('init', '-q');
-  git('add', '--', '.gitignore', ...required);
+  git('add', '--', '.gitignore', stagedEmpty, ...required);
   await put(asset, 'edited after staging');
   for (const path of privateFiles) await put(path, 'local test marker');
-  const run = name => execFileSync(process.execPath, [join(root, 'scripts', name)], { cwd: tmpdir(), encoding: 'utf8' });
+  git('add', '-N', '--', planned);
+  const run = name => execFileSync(process.execPath, [join(root, 'scripts', name)], { cwd: tmpdir(), encoding: 'utf8', stdio: 'pipe' });
   return { root, git, put, run };
 }
 
@@ -54,6 +58,7 @@ describe('release scripts', { skip: runtimeOnly }, () => {
       assert.ok(!files.some(entry => entry.path === path), path);
     }
     assert.equal(await readFile(join(contents, asset), 'utf8'), 'edited after staging');
+    assert.equal(await readFile(join(contents, stagedEmpty), 'utf8'), '');
     assert.equal(files.find(entry => entry.path === asset).sha256, createHash('sha256').update('edited after staging').digest('hex'));
     assert.equal(await readFile(join(contents, 'NAS-README.md'), 'utf8'), 'docs/deployment/nas.md');
   });
@@ -66,12 +71,67 @@ describe('release scripts', { skip: runtimeOnly }, () => {
     for (const path of privateFiles) assert.equal(existsSync(join(site, path)), false, path);
     for (const path of ['public/index.html', 'public/clone/favorites.html']) assert.equal(existsSync(join(site, path)), false);
     assert.equal(await readFile(join(site, asset), 'utf8'), 'edited after staging');
+    assert.equal(await readFile(join(site, stagedEmpty), 'utf8'), '');
     assert.equal(await readFile(join(site, 'public/site-owned.svg'), 'utf8'), 'site asset');
     assert.equal(await readFile(join(site, 'content/favorites.html'), 'utf8'), 'public/clone/favorites.html');
     for (const path of ['public/lib/config.mjs', 'weather/shared/config.mjs']) {
       assert.equal(await readFile(join(site, path), 'utf8'), 'src/config.mjs');
     }
     assert.equal(await readFile(join(site, 'tests/dashboard-client.test.mjs'), 'utf8'), "import '../weather/shared/dashboard-client.mjs';");
+  });
+
+  it('removes a previously synced asset when Git stops tracking it', async t => {
+    const { root, git, put, run } = await fixture(t);
+    await put('sites/clould10/public/site-owned.svg', 'keep');
+    run('sync-site.mjs');
+    git('rm', '--cached', '-f', '--', asset);
+    await put(asset, 'local revision');
+    run('sync-site.mjs');
+    assert.equal(existsSync(join(root, 'sites/clould10', asset)), false);
+    assert.equal(await readFile(join(root, 'sites/clould10/public/site-owned.svg'), 'utf8'), 'keep');
+  });
+
+  it('protects edited site files and reports ambiguous leftovers from older syncs', async t => {
+    const { root, git, put, run } = await fixture(t);
+    const siteFile = 'sites/clould10/' + asset;
+    await put('sites/clould10/public/nested/.env', 'existing file');
+    assert.throws(() => run('sync-site.mjs'), /public\/nested\/\.env/);
+    await rm(join(root, 'sites/clould10/public/nested/.env'));
+    run('sync-site.mjs');
+    git('rm', '--cached', '-f', '--', asset);
+    await put(siteFile, 'site edit');
+    assert.throws(() => run('sync-site.mjs'), /snow notes/);
+    assert.equal(await readFile(join(root, siteFile), 'utf8'), 'site edit');
+  });
+
+  it('rejects redirected site directories before publishing into them', async t => {
+    const { root, put, run } = await fixture(t);
+    await put('independent/keep.txt', 'keep');
+    await mkdir(join(root, 'sites/clould10/public'), { recursive: true });
+    await symlink(join(root, 'independent'), join(root, 'sites/clould10/public/nested'), 'dir');
+    assert.throws(() => run('sync-site.mjs'), /nested/);
+    assert.deepEqual(await readdir(join(root, 'independent')), ['keep.txt']);
+  });
+
+  it('fails before packaging when a required application tree is missing from Git', async t => {
+    const { root, git, run } = await fixture(t);
+    git('rm', '--cached', '-r', '--quiet', '--', 'src');
+    assert.throws(() => run('package-nas.mjs'), /src/);
+    assert.equal(existsSync(join(root, 'dist')), false);
+  });
+
+  it('keeps application files and NAS directories readable under a restrictive build umask', async t => {
+    const { root } = await fixture(t);
+    await chmod(join(root, asset), 0o644);
+    await chmod(dirname(join(root, asset)), 0o755);
+    function restricted(script) {
+      return execFileSync(process.execPath, ['--input-type=module', '-e', 'process.umask(0o077); await import(process.argv[1]);',
+        pathToFileURL(join(root, 'scripts', script)).href], { encoding: 'utf8' });
+    }
+    const { directory } = JSON.parse(restricted('package-nas.mjs'));
+    restricted('sync-site.mjs');
+    for (const target of [directory, join(root, 'sites/clould10')]) assert.equal((await stat(join(target, asset))).mode & 0o777, 0o644);
+    assert.equal((await stat(dirname(join(directory, asset)))).mode & 0o777, 0o755);
   });
 
   for (const [script, required, output] of [

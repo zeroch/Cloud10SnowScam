@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { trackedFiles, writeOutput } from './tracked-files.mjs';
@@ -23,11 +23,14 @@ const directory = join(dist, name);
 const archive = directory + '.zip';
 try {
   const manifest = [];
+  const directories = new Set();
   for (const [source, file] of inputs) {
     const path = source === readme ? 'NAS-README.md' : source;
     await writeOutput(join(staging, name, path), file);
+    for (let parent = dirname(path); parent !== '.'; parent = dirname(parent)) directories.add(parent);
     manifest.push({ path, sha256: createHash('sha256').update(file.data).digest('hex') });
   }
+  for (const path of directories) await chmod(join(staging, name, path), (await stat(join(root, path))).mode & 0o777);
   await writeFile(join(staging, name, 'manifest.json'),
     JSON.stringify({ application: 'Cloud10', version: '0.3.0', builtAt: new Date().toISOString(), files: manifest }, null, 2) + '\n');
   // zip updates an existing archive in place. Always run it in the fresh staging directory.
