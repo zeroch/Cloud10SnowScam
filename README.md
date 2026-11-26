@@ -35,11 +35,7 @@ npm test
 npm run package:nas
 ```
 
-The NAS command writes a source archive and SHA-256 manifest under `dist/`. Both the NAS packager and `node scripts/sync-site.mjs` read the current working-tree contents of Git-tracked files. Stage new inputs with `git add` to include them.
-
-Site sync records the public assets it writes under the source checkout’s `.cache/` directory. When a source is removed, sync removes its last published copy if the contents still match. It reports independently edited or unrecognized copies for review.
-
-The Cloudflare version serves the same dashboard using static assets, scheduled Workers and D1. [Synology setup](docs/deployment/nas.md) · [Cloudflare setup](docs/deployment/cloudflare-production.md)
+The NAS command writes a source archive and SHA-256 manifest under `dist/`. The Cloudflare version serves the same dashboard using static assets, scheduled Workers and D1. [Synology setup](docs/deployment/nas.md) · [Cloudflare setup](docs/deployment/cloudflare-production.md)
 
 For a preview with synthetic data, run `node tests/preview-overnight.mjs` on port 4174 or `node tests/preview-resort-comparison.mjs` on port 4176. The Python scripts under `scripts/` are historical authoring tools that take local research captures as inputs. The checked-in pages in `public/` run directly.
 

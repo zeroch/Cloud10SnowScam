@@ -9,21 +9,29 @@ export function gitRecords(root, args) {
   return new TextDecoder('utf-8', { fatal: true }).decode(result).split('\0').filter(Boolean);
 }
 
-// Git selects the inputs. Read their current working-tree contents once, before publishing anything.
-export async function trackedFiles(root, { required, directories, include = () => true }) {
-  const base = await realpath(root);
-  const paths = ['--', ...required, ...directories];
-  const index = gitRecords(base, ['ls-files', '--stage', '-z', ...paths]);
+export function indexEntries(root, pathspecs) {
+  const paths = ['--', ...pathspecs];
+  const index = gitRecords(root, ['ls-files', '--stage', '-z', ...paths]);
   // git add -N creates an index entry without staging the file for inclusion.
-  const intentOnly = new Set(gitRecords(base, ['diff', '--name-only', '--no-renames', '--ita-invisible-in-index', '--diff-filter=A', '-z', ...paths]));
-  const files = new Map();
+  const intentOnly = new Set(gitRecords(root, ['diff', '--name-only', '--no-renames', '--ita-invisible-in-index', '--diff-filter=A', '-z', ...paths]));
+  const entries = [];
   for (const record of index) {
     const tab = record.indexOf('\t');
     const [mode, , stage] = record.slice(0, tab).split(' ');
     const path = record.slice(tab + 1);
-    if (intentOnly.has(path) || (!required.includes(path) && !include(path))) continue;
+    if (!intentOnly.has(path)) entries.push({ path, regular: stage === '0' && ['100644', '100755'].includes(mode) });
+  }
+  return entries;
+}
+
+// Git selects the inputs. Read their current working-tree contents once, before publishing anything.
+export async function trackedFiles(root, { required, directories, include = () => true }) {
+  const base = await realpath(root);
+  const files = new Map();
+  for (const { path, regular } of indexEntries(base, [...required, ...directories])) {
+    if (!required.includes(path) && !include(path)) continue;
     const source = join(base, path);
-    if (stage !== '0' || !['100644', '100755'].includes(mode) || await realpath(source) !== source) {
+    if (!regular || await realpath(source) !== source) {
       throw new Error('Expected a tracked regular file: ' + path);
     }
     const handle = await open(source, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);

@@ -40,7 +40,13 @@ async function fixture(t) {
   for (const path of privateFiles) await put(path, 'local test marker');
   git('add', '-N', '--', planned);
   const run = name => execFileSync(process.execPath, [join(root, 'scripts', name)], { cwd: tmpdir(), encoding: 'utf8', stdio: 'pipe' });
-  return { root, git, put, run };
+  async function addSiteAsset() {
+    await put('sites/clould10/public/site-owned.svg', 'site asset');
+    const cwd = join(root, 'sites/clould10');
+    execFileSync('git', ['init', '-q'], { cwd });
+    execFileSync('git', ['add', '--', 'public/site-owned.svg'], { cwd });
+  }
+  return { root, git, put, run, addSiteAsset };
 }
 
 // The NAS runtime image ships the application tests without Git or the release scripts.
@@ -64,8 +70,8 @@ describe('release scripts', { skip: runtimeOnly }, () => {
   });
 
   it('syncs only tracked assets while preserving site-owned files and remapped sources', async t => {
-    const { root, put, run } = await fixture(t);
-    await put('sites/clould10/public/site-owned.svg', 'site asset');
+    const { root, addSiteAsset, run } = await fixture(t);
+    await addSiteAsset();
     run('sync-site.mjs');
     const site = join(root, 'sites/clould10');
     for (const path of privateFiles) assert.equal(existsSync(join(site, path)), false, path);
@@ -81,14 +87,28 @@ describe('release scripts', { skip: runtimeOnly }, () => {
   });
 
   it('removes a previously synced asset when Git stops tracking it', async t => {
-    const { root, git, put, run } = await fixture(t);
-    await put('sites/clould10/public/site-owned.svg', 'keep');
+    const { root, git, put, addSiteAsset, run } = await fixture(t);
+    await addSiteAsset();
     run('sync-site.mjs');
     git('rm', '--cached', '-f', '--', asset);
     await put(asset, 'local revision');
     run('sync-site.mjs');
     assert.equal(existsSync(join(root, 'sites/clould10', asset)), false);
-    assert.equal(await readFile(join(root, 'sites/clould10/public/site-owned.svg'), 'utf8'), 'keep');
+    assert.equal(await readFile(join(root, 'sites/clould10/public/site-owned.svg'), 'utf8'), 'site asset');
+  });
+
+  it('detects a destination-only legacy file on first sync or after ownership cache loss', async t => {
+    const { root, put, addSiteAsset, run } = await fixture(t);
+    await addSiteAsset();
+    const orphan = 'sites/clould10/public/old-local.json';
+    await put(orphan, 'local-only');
+    assert.throws(() => run('sync-site.mjs'), /old-local\.json/);
+    assert.equal(await readFile(join(root, orphan), 'utf8'), 'local-only');
+    await rm(join(root, orphan));
+    run('sync-site.mjs');
+    await rm(join(root, '.cache'), { recursive: true });
+    await put(orphan, 'another local-only file');
+    assert.throws(() => run('sync-site.mjs'), /old-local\.json/);
   });
 
   it('protects edited site files and reports ambiguous leftovers from older syncs', async t => {

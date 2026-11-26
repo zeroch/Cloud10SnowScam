@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, readFile, realpath, rm, stat } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, realpath, rm, stat } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
-import { gitRecords, writeOutput } from './tracked-files.mjs';
+import { gitRecords, indexEntries, writeOutput } from './tracked-files.mjs';
 
 const digest = data => createHash('sha256').update(data).digest('hex');
 
@@ -22,6 +22,24 @@ async function checkedPath(root, path) {
   return path;
 }
 
+async function checkExistingAssets(site, current) {
+  if (!await entry(join(site, 'public'))) return;
+  const owned = new Set();
+  if (await entry(join(site, '.git'))) {
+    for (const { path, regular } of indexEntries(site, ['public'])) if (regular) owned.add(path);
+  }
+  async function walk(directory) {
+    for (const item of await readdir(join(site, directory), { withFileTypes: true })) {
+      const path = directory + '/' + item.name;
+      if (item.isDirectory()) await walk(path);
+      else if (!current.has(path) && !(item.isFile() && owned.has(path))) {
+        throw new Error('Review existing site file with no recorded owner: ' + path);
+      }
+    }
+  }
+  await walk('public');
+}
+
 export async function syncSiteOutputs(root, outputs) {
   const base = await realpath(root);
   const site = join(base, 'sites/clould10');
@@ -35,6 +53,7 @@ export async function syncSiteOutputs(root, outputs) {
   const state = await checkedPath(base, join(base, '.cache', 'site-sync-' + dev + '-' + ino + '.json'));
   const stateFile = await entry(state);
   if (stateFile && !stateFile.isFile()) throw new Error('Unexpected site sync state file: ' + state);
+  if (!stateFile) await checkExistingAssets(site, current);
   const previous = new Map(stateFile ? Object.entries(JSON.parse(await readFile(state, 'utf8'))) : []);
 
   // Earlier versions also copied ignored and untracked source assets. Never guess ownership
