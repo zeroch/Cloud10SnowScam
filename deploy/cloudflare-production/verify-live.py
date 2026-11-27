@@ -1,31 +1,31 @@
 """Verify the public responses against the manifest exported by build-assets.mjs."""
+import argparse
 import concurrent.futures
 import datetime
-import hashlib
 import json
 import pathlib
-import subprocess
-import sys
 
-origin, manifest_path, output = sys.argv[1:4]
-expected_release = sys.argv[4] if len(sys.argv) > 4 else None
-manifest = json.loads(pathlib.Path(manifest_path).read_text())
+import live_checks
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("origin")
+parser.add_argument("manifest", type=pathlib.Path)
+parser.add_argument("output", type=pathlib.Path)
+parser.add_argument("expected_release", nargs="?")
+parser.add_argument("--public-edge", action="store_true",
+                    help="Check zone-injected HTML against the original assets beside the manifest.")
+args = parser.parse_args()
+origin = args.origin
+manifest = json.loads(args.manifest.read_text())
+asset_dir = args.manifest.parent / "assets" if args.public_edge else None
 
 
 def fetch(path, method="GET"):
-    # The client retries transport failures and returns the final HTTP status.
-    command = ["curl", "-4", "-sS", "--compressed", "--retry", "2", "--connect-timeout", "6",
-               "--max-time", "20", "-X", method, "-w", "\n%{http_code}", origin.rstrip("/") + path]
-    body, code = subprocess.check_output(command).rsplit(b"\n", 1)
-    return int(code), body
+    return live_checks.fetch(origin, path, method)
 
 
 def check_asset(entry):
-    status, body = fetch(entry["route"])
-    digest = hashlib.sha256(body).hexdigest()
-    if status != 200 or digest != entry["sha256"]:
-        raise ValueError((entry["route"], status, digest, entry["sha256"]))
-    return len(body)
+    return live_checks.check_asset(origin, entry, asset_dir)
 
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -34,8 +34,8 @@ status, body = fetch("/api/health")
 health = json.loads(body)
 assert status == 200 and health["ok"] and health["currentForecasts"] == 4, health
 assert health["storage"] == "Cloudflare D1", health
-if expected_release is not None:
-    assert health["release"] == expected_release, health
+if args.expected_release is not None:
+    assert health["release"] == args.expected_release, health
 status, body = fetch("/api/resorts")
 assert status == 200
 resorts = json.loads(body)["resorts"]
@@ -61,7 +61,7 @@ assert fetch("/api/resorts/unknown/dashboard")[0] == 404
 assert fetch("/api/dashboard", "POST")[0] == 405
 summary = {"verifiedUtc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "origin": origin,
            "matchingRoutesAndAssets": len(sizes), "matchingBytes": sum(sizes), "health": health, "resorts": records}
-file = pathlib.Path(output)
+file = args.output
 file.parent.mkdir(parents=True, exist_ok=True)
 file.write_text(json.dumps(summary, indent=2) + "\n")
 print(f"{origin}: {len(sizes)} matching assets/routes, four 15-day dashboards, stations, roads, 404/405 and healthy D1.")

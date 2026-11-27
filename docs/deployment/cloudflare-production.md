@@ -14,7 +14,7 @@ GitHub checks the archive digest, every exported response, the Git SHA, D1 healt
 | After 15 healthy minutes | 50% | 50% |
 | After another 15 healthy minutes | 100% | 0% |
 
-During each hold the job probes the exact candidate and the public health endpoint about once a minute. At 100% it verifies the public site against the same manifest. A failed check after traffic moves restores the recorded previous production version. Allow for runner startup, retries and Cloudflare propagation.
+During each hold the job probes the exact candidate and the public health endpoint about once a minute. At 100% it checks the Git SHA, all four dashboards and all manifest routes on the public domain. Cloudflare can append JavaScript detection and Web Analytics scripts to public HTML. The check compares that HTML against the archived page and allows only those additions before the closing body tag. The Version URL and all non-HTML assets require exact SHA-256 matches. A failed check after traffic moves restores the recorded previous production version. Allow for runner startup, retries and Cloudflare propagation.
 
 GitHub queues production changes. A new merge can stage while the active rollout finishes. A delayed automatic build skips its turn if a newer commit already rolled out or was rolled back. To choose a particular retained build yourself, use **Release to Cloudflare → Run workflow** on `main` with a merged PR number such as `#42`, a release tag, or a full main commit SHA. This uses the same checks and rollout schedule.
 
@@ -59,3 +59,5 @@ The script builds `dist/cloudflare-production/`, checks the collector handoff us
 python3 deploy/cloudflare-production/verify-live.py "$FORECAST_URL" \
   dist/cloudflare-production/manifest.json dist/cloudflare-verification.json "$RELEASE_SHA"
 ```
+
+For `https://forecast.cloud10snow.com`, append `--public-edge` and keep the release's `assets/` directory beside its manifest.

@@ -12,6 +12,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import UUID
 
+from live_checks import RELEASE_USER_AGENT
 
 PUBLIC = 'https://forecast.cloud10snow.com'
 NOTE = re.compile(r'Cloud10 (rollout|rollback) run=(\d+) git=([0-9a-f]{40}) '
@@ -186,7 +187,7 @@ def promote(api, run_id, sha, candidate, probe, final_check, *, automatic=False,
 
 def check_health(origin, expected_sha=None):
     # Cloudflare's Worker edge rejects urllib's default client identity.
-    request = Request(origin.rstrip('/') + '/api/health', headers={'User-Agent': 'Cloud10-Release/1.0'})
+    request = Request(origin.rstrip('/') + '/api/health', headers={'User-Agent': RELEASE_USER_AGENT})
     try:
         with urlopen(request, timeout=10) as response:
             health = json.load(response)
@@ -230,7 +231,8 @@ def main():
         retry(lambda: check_health(PUBLIC, sha), attempts=8, delay=8)
         retry(lambda: subprocess.run([sys.executable, str(Path(__file__).with_name('verify-live.py')),
                                       PUBLIC, 'dist/cloudflare-production/manifest.json',
-                                      str(Path(os.environ['RUNNER_TEMP']) / 'production.json'), sha], check=True))
+                                      str(Path(os.environ['RUNNER_TEMP']) / 'production.json'), sha,
+                                      '--public-edge'], check=True))
 
     def interrupted(*_):
         raise KeyboardInterrupt('rollout canceled')
