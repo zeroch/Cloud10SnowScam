@@ -4,7 +4,9 @@ For AI changes, push a `codex/` branch. The Actions bot opens a PR against `main
 
 ## Preview and automatic rollout
 
-After push CI passes on `main`, open **Actions → Release to Cloudflare → Stage and verify**. The job publishes a version of `cloud10-forecast` at 0% production traffic. Its summary links to the exact build and the Chinese Crystal Mountain page. The preview reads the live forecast database. The ordinary Worker URL and `forecast.cloud10snow.com` serve the production deployment.
+Bookmark [staging](https://staging-cloud10-forecast.chenze62.workers.dev/) for the latest successful `main` build and [production](https://forecast.cloud10snow.com/) for the public forecast. Staging reads the live forecast database. The staging link moves when the release workflow uploads the latest build, before the production rollout.
+
+After push CI passes on `main`, **Actions → Release to Cloudflare → Stage and verify** uploads a version of `cloud10-forecast` at 0% production traffic. Uploads run one at a time and compare the selected Git SHA with the latest successful push build. Older releases keep their own Version URLs. The job summary links to the exact build and the Chinese Crystal Mountain page.
 
 GitHub checks the archive digest, every exported response, the Git SHA, D1 health and all four resort dashboards on the Version URL. A passing preview starts the rollout automatically. The percentages are shares of requests.
 

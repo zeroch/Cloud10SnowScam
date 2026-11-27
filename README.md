@@ -1,6 +1,6 @@
 # Cloud10
 
-Cloud10 is a mountain weather dashboard for Stevens Pass, Crystal Mountain, Summit Central and Mt. Baker. Compare the next morning’s snow across all four resorts, then open a resort for its 15-day outlook, hourly model forecasts, nearby weather station and WSDOT road report. The interface supports English and Simplified Chinese. [Open the club forecast](https://forecast.cloud10snow.com/)
+Cloud10 is a mountain weather dashboard for Stevens Pass, Crystal Mountain, Summit Central and Mt. Baker. Compare the next morning’s snow across all four resorts, then open a resort for its 15-day outlook, hourly model forecasts, nearby weather station and WSDOT road report. The interface supports English and Simplified Chinese. [Production forecast](https://forecast.cloud10snow.com/) · [Latest staging build](https://staging-cloud10-forecast.chenze62.workers.dev/)
 
 ## Run locally
 

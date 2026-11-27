@@ -58,6 +58,11 @@ jobs:
     needs: select
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Only one upload at a time may move the shared staging bookmark.
+    concurrency:
+      group: cloud10-staging
+      queue: max
+      cancel-in-progress: false
     environment:
       name: production
       deployment: false
@@ -94,16 +99,27 @@ jobs:
             '.d1_databases[0].database_id = $db | .vars.RELEASE = $sha |
              .compatibility_date = $runtime[0].compatibility_date | .compatibility_flags = $runtime[0].compatibility_flags' \
             deploy/cloudflare-production/wrangler.example.jsonc > deploy/cloudflare-production/wrangler.jsonc
+      - name: Find the latest successful main build
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/cloud10-ci.yml/runs?branch=main&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha')
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "No successful main build found." >&2; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: Upload a version with no production traffic
         id: upload
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PUBLISH_STAGING: ${{ steps.latest.outputs.sha == env.RELEASE_SHA }}
         run: |
           : "${CLOUDFLARE_ACCOUNT_ID:?Missing production account ID}" "${CLOUDFLARE_API_TOKEN:?Missing production token}"
           export WRANGLER_OUTPUT_FILE_PATH="$RUNNER_TEMP/upload.jsonl"
+          alias_args=()
+          if [[ "$PUBLISH_STAGING" == true ]]; then alias_args=(--preview-alias staging); fi
           deploy/cloudflare-production/node_modules/.bin/wrangler versions upload --no-bundle --keep-vars \
-            --config deploy/cloudflare-production/wrangler.jsonc --message "Git $RELEASE_SHA"
+            --config deploy/cloudflare-production/wrangler.jsonc --message "Git $RELEASE_SHA" "${alias_args[@]}"
           python3 deploy/cloudflare-production/uploaded-version.py "$WRANGLER_OUTPUT_FILE_PATH"
       - name: Verify the version URL, assets and four live dashboards
         env:
@@ -113,6 +129,18 @@ jobs:
           echo "[Preview Crystal Mountain in Chinese]($VERSION_URL/location/crystalmountain/snow-summary?lang=zh-CN)" >> "$GITHUB_STEP_SUMMARY"
           echo "[Roll back this release]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/cloudflare-rollback.yml) using run ID \`$GITHUB_RUN_ID\`." >> "$GITHUB_STEP_SUMMARY"
           python3 deploy/cloudflare-production/verify-live.py "$VERSION_URL" dist/cloudflare-production/manifest.json "$RUNNER_TEMP/verification.json" "$RELEASE_SHA"
+      - name: Verify the staging bookmark serves this build
+        if: steps.upload.outputs.staging_url != ''
+        working-directory: deploy/cloudflare-production
+        env:
+          STAGING_URL: ${{ steps.upload.outputs.staging_url }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from rollout import check_health, retry
+          retry(lambda: check_health(os.environ['STAGING_URL'], os.environ['RELEASE_SHA']), attempts=8, delay=5)
+          PY
+          echo "[Latest staging build]($STAGING_URL)" >> "$GITHUB_STEP_SUMMARY"
 
   rollout:
     name: Roll out 10%, 50%, then 100%
