@@ -16,7 +16,7 @@ GitHub checks the archive digest, every exported response, the Git SHA, D1 healt
 
 During each hold the job probes the exact candidate and the public health endpoint about once a minute. At 100% it verifies the public site against the same manifest. A failed check after traffic moves restores the recorded previous production version. Allow for runner startup, retries and Cloudflare propagation.
 
-GitHub serializes production changes. An automatic build superseded on `main` before its turn is skipped. A new merge during an active rollout can stage while the active rollout finishes. To choose a particular retained build yourself, use **Release to Cloudflare → Run workflow** on `main` with a merged PR number such as `#42`, a release tag, or a full main commit SHA. This uses the same checks and rollout schedule.
+GitHub queues production changes. A new merge can stage while the active rollout finishes. A delayed automatic build skips its turn if a newer commit already rolled out or was rolled back. To choose a particular retained build yourself, use **Release to Cloudflare → Run workflow** on `main` with a merged PR number such as `#42`, a release tag, or a full main commit SHA. This uses the same checks and rollout schedule.
 
 ## Stop or roll back
 

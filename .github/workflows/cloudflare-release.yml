@@ -124,6 +124,7 @@ jobs:
       url: https://forecast.cloud10snow.com
     concurrency:
       group: cloud10-production
+      queue: max
       cancel-in-progress: false
     permissions:
       contents: read
@@ -133,29 +134,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Check that an automatic release is still the main tip
-        id: eligible
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
-            current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
-            if [[ "$current" != "$RELEASE_SHA" ]]; then
-              echo "A newer main commit superseded $RELEASE_SHA before rollout." >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-          fi
-          echo "ready=true" >> "$GITHUB_OUTPUT"
       - name: Retrieve the tested release manifest
-        if: steps.eligible.outputs.ready == 'true'
         env:
           ARTIFACT_ID: ${{ needs.select.outputs.artifact_id }}
           DIGEST: ${{ needs.select.outputs.digest }}
           GH_TOKEN: ${{ github.token }}
         run: bash deploy/cloudflare-production/fetch-bundle.sh
       - name: Monitor the preview and live traffic for the 30-minute rollout
-        if: steps.eligible.outputs.ready == 'true'
         env:
           VERSION_URL: ${{ needs.stage.outputs.url }}
           VERSION_ID: ${{ needs.stage.outputs.version }}

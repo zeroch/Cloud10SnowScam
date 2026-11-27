@@ -50,11 +50,14 @@ class Deployments:
             raise RuntimeError(f"Cloudflare deployment API failed: {body.get('errors')}")
         return body['result']
 
-    def current(self):
+    def history(self):
         deployments = retry(self.request)['deployments']
         if not deployments:
             raise RuntimeError('The Worker has no active deployment.')
-        return deployments[0]
+        return deployments
+
+    def current(self):
+        return self.history()[0]
 
     def set(self, weights, message):
         self.request({'strategy': 'percentage', 'annotations': {'workers/message': message},
@@ -78,7 +81,7 @@ def require_current(api, expected):
         raise DeploymentChanged('The active Cloudflare deployment changed. Stopping this rollout.')
 
 
-def switch(api, expected, weights, message, sleep):
+def switch(api, expected, weights, message, sleep, *, reconcile=True):
     require_current(api, expected)
     try:
         api.set(weights, message)
@@ -86,8 +89,18 @@ def switch(api, expected, weights, message, sleep):
         # A write can succeed even if its response is lost. Never blindly replay a write.
         print(f'Checking actual traffic after an ambiguous deployment response: {error}', file=sys.stderr)
     for attempt in range(4):
-        active = api.current()
+        history = api.history()
+        active = history[0]
         if note(active) == message and traffic(active) == weights:
+            # The API has no conditional deployment write. Check the actual predecessor
+            # in case an operator changed traffic between our GET and POST.
+            if len(history) < 2:
+                raise DeploymentChanged('Cloudflare deployment history changed or is incomplete. Inspect traffic.')
+            intervening = history[1]
+            if intervening['id'] != expected['id']:
+                if reconcile:
+                    switch(api, active, traffic(intervening), note(intervening), sleep, reconcile=False)
+                raise DeploymentChanged('Production changed during the switch. Inspect the deployment history.')
             report('Cloudflare traffic: ' + ', '.join(f'`{v}` {p}%' for v, p in weights.items()))
             return active
         if active['id'] != expected['id']:
@@ -116,6 +129,13 @@ def rollback(api, run_id, *, sleep=time.sleep, expected_message=None, confirmed_
     return True
 
 
+def older_commit(candidate_sha, handled_sha, directory='.'):
+    result = subprocess.run(['git', 'merge-base', '--is-ancestor', candidate_sha, handled_sha], cwd=directory)
+    if result.returncode not in (0, 1):
+        raise RuntimeError('Could not compare release commits. Check the main history before retrying.')
+    return result.returncode == 0
+
+
 def promote(api, run_id, sha, candidate, probe, final_check, *, automatic=False,
             clock=time.monotonic, sleep=time.sleep):
     active = api.current()
@@ -124,8 +144,11 @@ def promote(api, run_id, sha, candidate, probe, final_check, *, automatic=False,
         raise RuntimeError('Production already has a traffic split. Finish it or roll it back first.')
     previous = next(iter(weights))
     existing = NOTE.fullmatch(note(active))
-    if previous == candidate or (automatic and existing and existing[3] == sha):
+    if previous == candidate or (existing and existing[3] == sha and (automatic or existing[1] == 'rollout')):
         report(f'Git {sha} was already handled. Skipping duplicate deployment.')
+        return
+    if automatic and existing and older_commit(sha, existing[3]):
+        report(f'Git {sha} was superseded by already handled commit {existing[3]}.')
         return
     message = f'Cloud10 rollout run={run_id} git={sha} previous={previous} candidate={candidate}'
     report(f'Previous production version: `{previous}`. Release run: `{run_id}`.')

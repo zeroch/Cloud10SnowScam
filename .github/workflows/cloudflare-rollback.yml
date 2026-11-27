@@ -55,6 +55,7 @@ jobs:
       url: https://forecast.cloud10snow.com
     concurrency:
       group: cloud10-production
+      queue: max
       cancel-in-progress: false
     permissions:
       contents: read

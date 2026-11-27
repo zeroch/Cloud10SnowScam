@@ -22,19 +22,24 @@ class Deployments:
     def __init__(self):
         self.now = 0
         self.writes = []
+        self.records = []
         self.set({OLD: 100}, 'Git ' + 'b' * 40)
         self.writes.clear()
 
     def set(self, weights, message):
         self.active = {
-            'id': str(len(self.writes)) + '-' + message,
+            'id': str(len(self.records)) + '-' + message,
             'versions': [{'version_id': v, 'percentage': p} for v, p in weights.items()],
             'annotations': {'workers/message': message},
         }
+        self.records.insert(0, self.active)
         self.writes.append((self.now, dict(weights)))
 
     def current(self):
         return self.active
+
+    def history(self):
+        return self.records
 
     def sleep(self, seconds):
         self.now += seconds
@@ -89,6 +94,26 @@ class RolloutTests(unittest.TestCase):
         self.assertEqual(self.api.writes[-1], (1800, {OLD: 100}))
         self.assertFalse(rollout.rollback(self.api, '123', sleep=self.api.sleep))
         self.assertEqual(len(self.api.writes), 4)
+
+    def test_rerunning_a_successful_manual_release_keeps_its_original_baseline(self):
+        self.run_release()
+        rollout.promote(self.api, '123', SHA, OTHER, lambda: None, lambda: None,
+                        clock=lambda: self.api.now, sleep=self.api.sleep)
+        self.assertEqual(len(self.api.writes), 3)
+        self.assertTrue(rollout.rollback(self.api, '123', sleep=self.api.sleep))
+        self.assertEqual(self.api.writes[-1][1], {OLD: 100})
+
+    def test_operator_switch_between_read_and_write_recovers_the_intervening_allocation(self):
+        store = self.api.set
+        def racing_write(weights, message):
+            if not self.api.writes:
+                store({OLD: 25, OTHER: 75}, 'Operator split')
+            store(weights, message)
+        self.api.set = racing_write
+        with self.assertRaisesRegex(RuntimeError, 'changed'):
+            self.run_release()
+        self.assertEqual(self.api.writes[-1], (0, {OLD: 25, OTHER: 75}))
+        self.assertEqual(len(self.api.writes), 3)
 
     def test_dashboard_override_during_soak_is_respected(self):
         def override():
@@ -171,3 +196,11 @@ class RolloutTests(unittest.TestCase):
         rollout.rollback(self.api, '123', sleep=self.api.sleep)
         self.run_release(automatic=True)
         self.assertEqual(len(self.api.writes), 4)
+
+    def test_an_out_of_order_ci_completion_cannot_replace_a_newer_release(self):
+        self.run_release()
+        with patch.object(rollout, 'older_commit', return_value=True) as compare:
+            rollout.promote(self.api, '124', 'c' * 40, OTHER, lambda: None, lambda: None,
+                            automatic=True, clock=lambda: self.api.now, sleep=self.api.sleep)
+        compare.assert_called_once_with('c' * 40, SHA)
+        self.assertEqual(len(self.api.writes), 3)
