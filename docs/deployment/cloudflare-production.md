@@ -1,6 +1,6 @@
 # Release Cloud10 to Cloudflare
 
-Open a pull request against `main`. The **Cloud10 CI** check runs the Node tests, release selection tests, collector handoff checks and Wrangler checks. You can merge your own PR when the branch is up to date and that check passes. Reviewer approval is optional. Each successful push build on `main` captures the Worker and browser files together for 90 days.
+For AI changes, push a `codex/` branch. The Actions bot opens a PR against `main` and requests `@zeroch` for review. Merge requires one approving review, an up-to-date branch and passing **Cloud10 CI**. The check runs the Node tests, release selection tests, collector handoff checks and Wrangler checks. Each successful push build on `main` captures the Worker and browser files together for 90 days. [Agent procedure](../../AGENTS.md)
 
 ## Preview and automatic rollout
 
