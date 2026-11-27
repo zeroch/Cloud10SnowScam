@@ -24,13 +24,27 @@ test('four resorts share a date and bar scale while retaining their own forecast
   assert.deepEqual(result.rows.map(r => r.night.agreement.key), ['high','low','high','moderate']);
   assert.deepEqual(result.rows.map(r => r.night.quality.key), ['good','excellent','wet','good']);
   assert.deepEqual(result.rows.map(r => r.night.snow.count), [5,5,5,4]);
-  const amounts = [5, 7.4, 2, .8 * 2 + .2 * 14 / 3];
-  result.rows.forEach((row, i) => assert.ok(Math.abs(row.fraction - amounts[i] / 7.4) < 1e-10));
+  assert.deepEqual(result.rows.map(r => r.fraction), [.5, .8, .2, .3]);
   assert.equal(result.selected.nightDate, '2026-10-18');
   assert.ok(result.rows.every(r => {
     const url = new URL(r.href, 'https://example.test');
     return url.pathname === `/location/${r.resort.id}/snow-summary` && url.searchParams.get('night') === '2026-10-18' && url.hash === '#live-overnight';
   }));
+});
+
+test('comparison bars show a tenth per displayed inch and cap the fill while preserving larger totals', () => {
+  const entries = resortComparisonFixture();
+  const totals = { stevenspass: 0, crystalmountain: .25, summitcentral: 10, mtbaker: 15 };
+  for (const [id, total] of Object.entries(totals)) {
+    for (const model of entries[id].data.models) {
+      for (const point of model.points) point.snowIn = total / 12;
+    }
+  }
+  const rows = renderedRows(board(entries));
+  for (const [index, amount, percent] of [[0, 0, 0], [1, 1, 10], [2, 10, 100], [3, 15, 100]]) {
+    assert.ok(rows[index].includes(`data-snowfall-value="${amount}"`));
+    assert.ok(rows[index].includes(`style="width:${percent}%"`), `${amount} inches should fill ${percent}% of the track`);
+  }
 });
 
 test('3-day and Outlook choices compare one morning, not cumulative snow or blended quality', () => {
@@ -106,6 +120,9 @@ test('comparison markup exposes amounts, quality and agreement together with wor
   const result = board();
   const html = renderComparison(result);
   const rows = renderedRows(result);
+  const headings = html.match(/class="compare-columns"[^>]*>(.*?)<\/div>/s)[1];
+  assert.deepEqual([...headings.matchAll(/<span>(.*?)<\/span>/g)].map(match => match[1]),
+    ['Mountain', 'Snowfall', 'Model agreement']);
   for (const [index, status, count] of [[0,'Agree',5],[1,'Split',5],[3,'Mixed',4]]) {
     assert.match(rows[index], new RegExp(`<strong>${status}</strong>[\\s\\S]*?${count} models`));
     assert.match(rows[index], /Model agreement:/);
@@ -150,9 +167,12 @@ test('rain and positive wet snow stay distinct from zero-snow uncertainty', () =
   }));
   const rows = renderedRows(board(entries));
   assert.match(rows[0], /data-snow-quality="rain"/);
-  assert.match(rows[0], />Rain</);
   assert.match(rows[2], /data-snow-quality="wet"/);
-  assert.match(rows[2], />Wet</);
+  for (const [index, amount, quality] of [[0, '0', 'Rain'], [2, '2', 'Wet']]) {
+    const figure = rows[index].match(/class="resort-figure"[^>]*>(.*?)<\/div>/s)[1];
+    assert.ok(figure.includes(`data-snowfall-value="${amount}"`));
+    assert.ok(figure.includes(`>${quality}<`), `The snowfall amount should include the ${quality} label`);
+  }
   assert.doesNotMatch(rows[0] + rows[2], /Snow uncertain|Light snow/);
 });
 
