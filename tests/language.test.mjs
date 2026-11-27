@@ -25,6 +25,7 @@ test('unit preferences convert forecast amounts without changing the forecast or
   const facts = value => value.rows.map(({ night, fraction }) => [night.estimate.blendedIn, night.quality.key, fraction]);
   const original = board();
   assert.match(renderComparison(original), /data-snowfall-value="5"/);
+  assert.match(renderComparison(original), /Full bar at 10 in/);
   setDisplayUnits({ depth: 'cm' });
   assert.equal(displayUnits.temperature, 'F');
   const metric = board();
@@ -32,6 +33,7 @@ test('unit preferences convert forecast amounts without changing the forecast or
   assert.match(renderComparison(metric), /data-snowfall-value="13"/);
   assert.match(renderComparison(metric), />cm<\/span>/);
   assert.match(renderComparison(metric), /12\.7 centimeters/);
+  assert.match(renderComparison(metric), /Full bar at 25\.4 cm/);
 });
 
 test('Chinese station readings use the selected units and preserve zero and unavailable readings', ctx => {
