@@ -106,6 +106,9 @@ test('comparison markup exposes amounts, quality and agreement together with wor
   const result = board();
   const html = renderComparison(result);
   const rows = renderedRows(result);
+  const headings = html.match(/class="compare-columns"[^>]*>(.*?)<\/div>/s)[1];
+  assert.deepEqual([...headings.matchAll(/<span>(.*?)<\/span>/g)].map(match => match[1]),
+    ['Mountain', 'Snowfall', 'Model agreement']);
   for (const [index, status, count] of [[0,'Agree',5],[1,'Split',5],[3,'Mixed',4]]) {
     assert.match(rows[index], new RegExp(`<strong>${status}</strong>[\\s\\S]*?${count} models`));
     assert.match(rows[index], /Model agreement:/);
@@ -150,9 +153,12 @@ test('rain and positive wet snow stay distinct from zero-snow uncertainty', () =
   }));
   const rows = renderedRows(board(entries));
   assert.match(rows[0], /data-snow-quality="rain"/);
-  assert.match(rows[0], />Rain</);
   assert.match(rows[2], /data-snow-quality="wet"/);
-  assert.match(rows[2], />Wet</);
+  for (const [index, amount, quality] of [[0, '0', 'Rain'], [2, '2', 'Wet']]) {
+    const figure = rows[index].match(/class="resort-figure"[^>]*>(.*?)<\/div>/s)[1];
+    assert.ok(figure.includes(`data-snowfall-value="${amount}"`));
+    assert.ok(figure.includes(`>${quality}<`), `The snowfall amount should include the ${quality} label`);
+  }
   assert.doesNotMatch(rows[0] + rows[2], /Snow uncertain|Light snow/);
 });
 
