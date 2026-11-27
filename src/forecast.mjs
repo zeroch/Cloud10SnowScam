@@ -23,23 +23,21 @@ export function forecastWindow(now, days) {
 
 const PARTIAL_HOUR = { includePartialStart: true };
 
-function totalForHours(start, end, valueAt, { includePartialStart = false, onHour } = {}) {
+function totalForHours(start, end, valueAt, { includePartialStart = false } = {}) {
   let sum = 0, correction = 0, covered = 0;
   const first = includePartialStart ? Math.floor(start / HOUR) * HOUR : start;
   const expected = (end - first) / HOUR;
   for (let time = first + HOUR; time <= end; time += HOUR) {
     const value = valueAt(time);
-    if (finite(value) && value >= 0) {
-      const fraction = Math.min(1, (time - start) / HOUR);
-      // Compensated summation keeps repeated fractions from crossing an integer
-      // or a snowfall threshold solely through accumulated floating-point error.
-      const corrected = value * fraction - correction;
-      const next = sum + corrected;
-      correction = (next - sum) - corrected;
-      sum = next;
-      covered++;
-    }
-    onHour?.(time, value, covered === (time - first) / HOUR ? Number(sum.toPrecision(15)) : null);
+    if (!finite(value) || value < 0) continue;
+    const fraction = Math.min(1, (time - start) / HOUR);
+    // Compensated summation keeps repeated fractions from crossing an integer
+    // or a snowfall threshold solely through accumulated floating-point error.
+    const corrected = value * fraction - correction;
+    const next = sum + corrected;
+    correction = (next - sum) - corrected;
+    sum = next;
+    covered++;
   }
   const complete = expected > 0 && Number.isInteger(expected) && covered === expected;
   const total = Number(sum.toPrecision(15));
@@ -53,21 +51,21 @@ export function intervalTotal(points, start, end, field, options) {
 
 export const SNOW_BLEND = Object.freeze({ nearHours: 48, preferredWeight: 0.8 });
 
-function createHourlyBlend(data, now, models) {
+export function createSnowfallBlend(data, now, models = data.models || []) {
   // The feed supplies a collection time but no shared initialization time.
   // Anchor every window in this snapshot to the same first full forecast hour.
   const collectedAt = data.sources?.find(source => source.id === 'forecast')?.fetchedAt ?? data.generatedAt ?? now;
   const nearEnd = (Math.ceil(collectedAt / HOUR) + SNOW_BLEND.nearHours) * HOUR;
   const inputs = models.map(model => ({
     id: model.id,
-    hourly: new Map(model.points.map(point => [point.time, point])),
+    hourly: new Map(model.points.map(point => [point.time, point.snowIn])),
   }));
   const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 
-  function valueAt(time, field) {
+  function snowfallAt(time) {
     const preferred = [], others = [];
     for (const { id, hourly } of inputs) {
-      const value = hourly.get(time)?.[field];
+      const value = hourly.get(time);
       if (!finite(value) || value < 0) continue;
       if (id === 'ecmwf_ifs025' || (id === 'gfs_hrrr' && time <= nearEnd)) preferred.push(value);
       else others.push(value);
@@ -76,49 +74,8 @@ function createHourlyBlend(data, now, models) {
     if (!others.length) return mean(preferred);
     return SNOW_BLEND.preferredWeight * mean(preferred) + (1 - SNOW_BLEND.preferredWeight) * mean(others);
   }
-  return { valueAt, pointsAt: time => inputs.map(model => model.hourly.get(time)).filter(Boolean) };
-}
 
-export function createSnowfallBlend(data, now, models = data.models || []) {
-  const { valueAt } = createHourlyBlend(data, now, models);
-  return (start, end, options) => totalForHours(start, end, time => valueAt(time, 'snowIn'), options).total;
-}
-
-function supportsRain(warmWetModels, reportingModels) {
-  return warmWetModels >= 3 && warmWetModels > reportingModels / 2;
-}
-
-function hourlyPrecipType(points, snowIn, freezingLevelFt, elevationFt) {
-  if (!finite(snowIn)) return 'unknown';
-  if (snowIn > 0) {
-    if (!finite(freezingLevelFt) || !finite(elevationFt)) return 'unknown';
-    return freezingLevelFt >= elevationFt ? 'wet' : 'snow';
-  }
-  const reporting = points.filter(p => finite(p.snowIn));
-  const warmWet = reporting.filter(p => p.precipIn > 0 && finite(p.temperatureF) && p.temperatureF > 32);
-  if (supportsRain(warmWet.length, reporting.length)) return 'rain';
-  if (reporting.length && reporting.every(p => p.precipIn === 0) && !points.some(p => p.precipIn > 0)) return 'none';
-  return 'unknown';
-}
-
-export function hourlySnowForecast(data, now) {
-  const start = Math.ceil(now / HOUR) * HOUR;
-  const status = data.sources?.find(source => source.id === 'forecast')?.status;
-  const current = status === 'fresh' || status === 'cached';
-  const models = current || status === 'stale' ? data.models || [] : [];
-  const { valueAt, pointsAt } = createHourlyBlend(data, now, models);
-  const hours = [];
-  const appendHour = (to, snowIn, totalIn) => {
-    const from = to - HOUR;
-    // Snow covers the following hour. The freezing height is instantaneous at its start.
-    const freezingLevelFt = valueAt(from, 'freezingLevelFt');
-    hours.push({
-      start: from, snowIn, totalIn, freezingLevelFt,
-      phase: current ? hourlyPrecipType(pointsAt(to), snowIn, freezingLevelFt, data.resort?.elevationFt) : 'unknown',
-    });
-  };
-  const { total } = totalForHours(start, start + 36 * HOUR, time => valueAt(time, 'snowIn'), { onHour: appendHour });
-  return { start, hours, totalIn: total };
+  return (start, end, options) => totalForHours(start, end, snowfallAt, options).total;
 }
 
 export function forecastRange(models, start, end, field = 'snowIn', options) {
@@ -489,7 +446,7 @@ export function personalSnowQuality(data, night) {
       const wetHours = model.points.filter(p => p.time > night.start && p.time <= night.end && p.precipIn > 0);
       return wetHours.length > 0 && wetHours.every(p => finite(p.temperatureF) && p.temperatureF > 32);
     }).length;
-    if (supportsRain(rainModels, night.snow.count)) return { key: 'rain', label: t('Rain'), rainModels };
+    if (rainModels >= 3 && rainModels > night.snow.count / 2) return { key: 'rain', label: t('Rain'), rainModels };
     return { key: 'poor', label: t('Poor') };
   }
   if (!night.condition.key) return unknown;

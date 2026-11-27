@@ -68,11 +68,9 @@ test('each resort detail exposes the morning and extended outlook views', async 
     assert.match(html, /data-live-slot="morning-conditions"/);
     const today = html.indexOf('id="live-summary"');
     const outlook = html.indexOf('id="live-extended"');
-    const hourly = html.indexOf('id="live-hourly"');
     const conditions = html.indexOf('id="live-conditions"');
-    assert.ok(today >= 0 && today < outlook && outlook < hourly && hourly < conditions);
-    assert.match(html, /href="#live-overnight">Today<\/a><a href="#live-extended">15 days<\/a><a href="#live-hourly">Hourly<\/a><a href="#live-conditions">Conditions<\/a>/);
-    assert.match(html, /data-live-slot="hourly-snow"/);
+    assert.ok(today >= 0 && today < outlook && outlook < conditions, 'Today is followed by the 15-day outlook and then conditions');
+    assert.match(html, /href="#live-overnight">Today<\/a><a href="#live-extended">15 days<\/a><a href="#live-conditions">Conditions<\/a>/);
     assert.match(html, /href="\/clone\/mountain.css"/);
   }
   assert.equal((await fetch(`${base}/clone/assets/north-cascades-usfws.jpg`)).status, 200);
