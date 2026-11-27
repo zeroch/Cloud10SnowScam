@@ -21,30 +21,34 @@ export function forecastWindow(now, days) {
   return { start, end: start + days * 24 * HOUR, hours: days * 24 };
 }
 
-function totalForHours(start, end, valueAt, onHour) {
+const PARTIAL_HOUR = { includePartialStart: true };
+
+function totalForHours(start, end, valueAt, { includePartialStart = false, onHour } = {}) {
   let sum = 0, correction = 0, covered = 0;
-  const expected = (end - start) / HOUR;
-  for (let time = start + HOUR; time <= end; time += HOUR) {
+  const first = includePartialStart ? Math.floor(start / HOUR) * HOUR : start;
+  const expected = (end - first) / HOUR;
+  for (let time = first + HOUR; time <= end; time += HOUR) {
     const value = valueAt(time);
     if (finite(value) && value >= 0) {
+      const fraction = Math.min(1, (time - start) / HOUR);
       // Compensated summation keeps repeated fractions from crossing an integer
       // or a snowfall threshold solely through accumulated floating-point error.
-      const corrected = value - correction;
+      const corrected = value * fraction - correction;
       const next = sum + corrected;
       correction = (next - sum) - corrected;
       sum = next;
       covered++;
     }
-    onHour?.(time, value, covered === (time - start) / HOUR ? Number(sum.toPrecision(15)) : null);
+    onHour?.(time, value, covered === (time - first) / HOUR ? Number(sum.toPrecision(15)) : null);
   }
   const complete = expected > 0 && Number.isInteger(expected) && covered === expected;
   const total = Number(sum.toPrecision(15));
   return { total: complete ? total : null, partialTotal: total, complete, covered, expected };
 }
 
-export function intervalTotal(points, start, end, field) {
+export function intervalTotal(points, start, end, field, options) {
   const byTime = new Map(points.map(point => [point.time, point]));
-  return totalForHours(start, end, time => byTime.get(time)?.[field]);
+  return totalForHours(start, end, time => byTime.get(time)?.[field], options);
 }
 
 export const SNOW_BLEND = Object.freeze({ nearHours: 48, preferredWeight: 0.8 });
@@ -77,7 +81,7 @@ function createHourlyBlend(data, now, models) {
 
 export function createSnowfallBlend(data, now, models = data.models || []) {
   const { valueAt } = createHourlyBlend(data, now, models);
-  return (start, end) => totalForHours(start, end, time => valueAt(time, 'snowIn')).total;
+  return (start, end, options) => totalForHours(start, end, time => valueAt(time, 'snowIn'), options).total;
 }
 
 function supportsRain(warmWetModels, reportingModels) {
@@ -113,12 +117,12 @@ export function hourlySnowForecast(data, now) {
       phase: current ? hourlyPrecipType(pointsAt(to), snowIn, freezingLevelFt, data.resort?.elevationFt) : 'unknown',
     });
   };
-  const { total } = totalForHours(start, start + 36 * HOUR, time => valueAt(time, 'snowIn'), appendHour);
+  const { total } = totalForHours(start, start + 36 * HOUR, time => valueAt(time, 'snowIn'), { onHour: appendHour });
   return { start, hours, totalIn: total };
 }
 
-export function forecastRange(models, start, end, field = 'snowIn') {
-  const rows = models.map(model => ({ id: model.id, label: model.label, ...intervalTotal(model.points, start, end, field) }));
+export function forecastRange(models, start, end, field = 'snowIn', options) {
+  const rows = models.map(model => ({ id: model.id, label: model.label, ...intervalTotal(model.points, start, end, field, options) }));
   const totals = rows.filter(m => m.complete).map(m => m.total);
   return { min: totals.length ? Math.min(...totals) : null, max: totals.length ? Math.max(...totals) : null,
     count: totals.length, contributingCount: rows.filter(row => row.covered > 0).length, models: rows };
@@ -267,7 +271,7 @@ function datedNight(choice) {
 
 function precipitationAtCaution(models, intervals, start, end, wet) {
   return models.some(model => model.points.some(p => p.time > start && p.time <= end && finite(p.precipIn) && p.precipIn > 0 &&
-    intervals.some(level => finite(level.feet) && level.feet >= wet && level.start < p.time && level.end > p.time - HOUR)));
+    intervals.some(level => finite(level.feet) && level.feet >= wet && level.start < p.time && level.end > Math.max(start, p.time - HOUR))));
 }
 
 function mainUncertainty(n, models, timingRisk) {
@@ -276,7 +280,9 @@ function mainUncertainty(n, models, timingRisk) {
   if (n.forecastState === 'unavailable') return explain('unavailable', t('No usable forecast is available to assess this night.'));
   if (n.forecastState === 'stale') return explain('stale', t('Collection is overdue. The saved amounts may no longer reflect the latest forecasts.'));
   if (n.phase === 'ending') return explain('remaining', t('The last hour is in progress. Already-fallen snow and the remaining part of this hour are unconfirmed.'));
-  if (n.phase === 'remaining') return explain('remaining', t('These are only the remaining full forecast hours. The full-night snowfall is still unconfirmed.'));
+  if (n.phase === 'remaining') return explain('remaining', n.opening
+    ? t('The current hour is estimated in proportion to the time remaining.')
+    : t('These are only the remaining full forecast hours. The full-night snowfall is still unconfirmed.'));
   if (n.coverage !== 'full') return explain('coverage', t('Only {0} of {1} models cover the full night. Missing forecasts could change the picture.', n.snow.count, n.expectedModels));
   if (n.snow.max === 0) return explain('dry', t('No model shows new snow this night. This does not describe the existing ski surface.'));
   if (n.level.state !== 'current') return explain('snow-level-data', n.level.state === 'stale'
@@ -294,22 +300,27 @@ function mainUncertainty(n, models, timingRisk) {
     return explain('threshold', t('Some estimates are within {0} of your {1} target. Small forecast changes could alter target support.', depthThreshold(0.5, true), overnightTarget()));
   if (n.snow.max < 4) return explain('below', t('All models stay below {0}. The forecast offers little support for your fresh-snow target.', depthThreshold(4, true)));
   if (timingRisk === 'split') return explain('timing', t('Arrival timing is unresolved between models. Inspect the overnight intervals before relying on a morning total.'));
-  if (timingRisk === 'late') return explain('timing', t('Most forecast accumulation is after midnight. A delay could change how much arrives by 6 am.'));
+  if (timingRisk === 'late') return explain('timing', n.opening
+    ? t('Most forecast accumulation is after midnight. A delay could change how much arrives by opening.')
+    : t('Most forecast accumulation is after midnight. A delay could change how much arrives by 6 am.'));
   return explain('forecast', t('Model agreement does not verify actual snowfall. Check a station report before leaving.'));
 }
 
-export function overnightDecision(data, now, choice = 'auto') {
-  const hour = localParts(now).hour, morningHours = hour >= 6 && hour < 12;
-  const requested = datedNight(choice);
+export function overnightDecision(data, now, choice = 'auto', openingWindow = null) {
+  const hour = localParts(now).hour, morningHours = !openingWindow && hour >= 6 && hour < 12;
+  const requested = openingWindow || datedNight(choice);
   const review = requested ? requested.end <= now : morningHours && choice !== 'tonight';
   const night = requested || nightWindow(now, hour < 6 || review ? -1 : 0);
   const morning = morningHours || review;
-  const start = review ? night.start : Math.max(night.start, Math.ceil(now / HOUR) * HOUR);
+  const forecastStart = openingWindow ? now : Math.ceil(now / HOUR) * HOUR;
+  const start = review ? night.start : Math.max(night.start, forecastStart);
   const phase = review ? 'morning' : start >= night.end ? 'ending' : start > night.start ? 'remaining' : 'upcoming';
   const source = data.sources?.find(s => s.id === 'forecast');
   const forecastState = collectionState(source, now);
   const models = MODELS.map(m => ({ ...m, points: data.models?.find(p => p.id === m.id)?.points || [] }));
-  const snow = forecastRange(models, start, night.end);
+  const options = openingWindow ? PARTIAL_HOUR : undefined;
+  const snow = forecastRange(models, start, night.end, 'snowIn', options);
+  const partialSnow = openingWindow && snow.max === 0 && snow.models.some(row => !row.complete && row.partialTotal > 0);
   const coverage = snow.count === MODELS.length ? 'full' : snow.count > 1 ? 'limited' : snow.count === 1 ? 'single' : 'none';
   const complete = snow.models.filter(m => m.complete);
   const subject = coverage === 'full' ? t('All models') : t('Available models');
@@ -320,6 +331,7 @@ export function overnightDecision(data, now, choice = 'auto') {
   else if (phase === 'ending') headline = t('Final hour in progress');
   else if (!snow.count) headline = t('Full-period model totals unavailable');
   else if (phase === 'remaining') headline = t('Remaining overnight forecast');
+  else if (partialSnow) headline = t('Snow uncertain');
   else if (coverage === 'single') headline = t('Only {0} covers this night', complete[0].label);
   else {
     amountState = snow.max === 0 ? 'zero' : snow.max < 4 ? 'below' : snow.min < 4 ? 'split' : snow.min < 5 ? 'lower' : 'upper';
@@ -336,17 +348,17 @@ export function overnightDecision(data, now, choice = 'auto') {
     targetState: !row.complete || forecastState !== 'current' || phase !== 'upcoming' ? 'neutral' : row.total < 4 ? 'below' : 'meets',
   }));
   const bins = forecastBins(start, night.end, 3).map(bin => ({ ...bin,
-    snow: forecastRange(models, bin.start, bin.end), liquid: forecastRange(models, bin.start, bin.end, 'precipIn'),
+    snow: forecastRange(models, bin.start, bin.end, 'snowIn', options), liquid: forecastRange(models, bin.start, bin.end, 'precipIn', options),
     level: overnightLevel(data, bin.start, bin.end, now),
   }));
   let timing = t('Timing unavailable'), timingRisk = null;
   if (phase === 'morning') timing = t('The 6 pm–6 am window has ended');
   else if (phase === 'ending') timing = t('Remaining amount unavailable for this partial hour');
   else if (forecastState !== 'current') timing = forecastState === 'stale' ? t('Timing belongs to the saved forecast') : t('Waiting for usable forecast data');
-  else if (snow.count) {
+  else if (snow.count && !partialSnow) {
     if (snow.max === 0) timing = t('{0} in {1}', coverage === 'full' ? t('No snow') : t('Available models show no snow'), phase === 'remaining' ? t('the remaining hours') : t('this night'));
     else if (snow.max < .1) timing = t('Only trace accumulation shown');
-    else if (phase === 'remaining') timing = t('Full future forecast hours only');
+    else if (phase === 'remaining') timing = openingWindow ? t('Remaining time before opening') : t('Full future forecast hours only');
     else {
       const midnight = bins.find(b => localParts(b.start).hour === 0)?.start;
       const snowModels = models.filter(m => complete.some(r => r.id === m.id && r.total >= .1));
@@ -369,7 +381,7 @@ export function overnightDecision(data, now, choice = 'auto') {
     four: complete.filter(m => m.total >= 4).length, five: complete.filter(m => m.total >= 5).length,
     available: complete.length, expected: MODELS.length,
   } : null;
-  const result = { phase, morning, nightDate: nightDate(night.start), lastNightDate: nightDate(nightWindow(now, -1).start),
+  const result = { phase, morning, opening: !!openingWindow, nightDate: nightDate(night.start), lastNightDate: nightDate(nightWindow(now, -1).start),
     nightStart: night.start, start, end: night.end, source, forecastState, snow, rows, bins, coverage, support,
     bands: snowLevelBands(data.resort), expectedModels: MODELS.length, coverageText: t('{0} of {1} models cover {2}', snow.count, MODELS.length, phase === 'remaining' ? t('these hours') : t('this night')),
     amountState, headline, amount, timing, level: overnightLevel(data, start, night.end, now),
@@ -380,10 +392,10 @@ export function overnightDecision(data, now, choice = 'auto') {
 
 // Presentation for the focused Tomorrow screen. The original totals and source
 // states remain available in Details; these summaries never replace that evidence.
-export function tomorrowForecast(data, now, choice = 'auto', blend = createSnowfallBlend(data, now)) {
-  const night = overnightDecision(data, now, choice);
+export function tomorrowForecast(data, now, choice = 'auto', blend = createSnowfallBlend(data, now), openingWindow = null) {
+  const night = overnightDecision(data, now, choice, openingWindow);
   const canForecast = !['morning', 'ending'].includes(night.phase) && night.forecastState !== 'unavailable';
-  const blendedIn = canForecast ? blend(night.start, night.end) : null;
+  const blendedIn = canForecast ? blend(night.start, night.end, openingWindow ? PARTIAL_HOUR : undefined) : null;
   const usable = blendedIn !== null;
   const median = canForecast ? modelMedian(night.snow) : null;
   const value = usable ? snowAmount(blendedIn) : night.phase === 'morning' ? t('Unconfirmed') : '—';
@@ -429,6 +441,21 @@ export function tomorrowForecast(data, now, choice = 'auto', blend = createSnowf
   return { ...night, estimate, agreement, condition };
 }
 
+export function resortSnowfallForecast(data, now) {
+  const openHour = 8, closeHour = 16;
+  const hour = localParts(now).hour;
+  const daytime = hour >= openHour && hour < closeHour;
+  const window = nightWindow(now, hour < openHour ? -1 : 0, { startHour: closeHour, endHour: openHour });
+  const blend = createSnowfallBlend(data, now);
+  const opening = tomorrowForecast(data, now, 'auto', blend, window);
+  if (!daytime) return { daytime, opening, remaining: opening };
+
+  const end = window.start, { forecastState } = opening;
+  const snow = forecastRange(data.models || [], now, end, 'snowIn', PARTIAL_HOUR);
+  const blendedIn = forecastState === 'unavailable' ? null : blend(now, end, PARTIAL_HOUR);
+  return { daytime, opening, remaining: { start: now, end, forecastState, snow, estimate: { blendedIn } } };
+}
+
 // Each column is an independent Pacific overnight forecast, never a cumulative
 // total. Build dates on the local calendar so DST nights keep their actual hours.
 export function horizonForecast(data, now, days) {
@@ -457,7 +484,7 @@ export function personalSnowQuality(data, night) {
     const complete = new Set(night.rows.filter(row => row.complete).map(row => row.id));
     const rainModels = data.models.filter(model => {
       if (!complete.has(model.id)) return false;
-      const liquid = intervalTotal(model.points, night.start, night.end, 'precipIn');
+      const liquid = intervalTotal(model.points, night.start, night.end, 'precipIn', night.opening ? PARTIAL_HOUR : undefined);
       if (!liquid.complete || liquid.total < .01) return false;
       const wetHours = model.points.filter(p => p.time > night.start && p.time <= night.end && p.precipIn > 0);
       return wetHours.length > 0 && wetHours.every(p => finite(p.temperatureF) && p.temperatureF > 32);

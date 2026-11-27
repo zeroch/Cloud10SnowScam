@@ -29,13 +29,13 @@ export function localDayStart(value, offsetDays = 0) {
   return localInstant(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate(), 0);
 }
 
-export function nightWindow(value, offsetDays = 0) {
+export function nightWindow(value, offsetDays = 0, { startHour = 18, endHour = 6 } = {}) {
   const p = localParts(value);
   const d = new Date(Date.UTC(p.year, p.month - 1, p.day + offsetDays));
   const next = new Date(Date.UTC(p.year, p.month - 1, p.day + offsetDays + 1));
   return {
-    start: localInstant(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), 18),
-    end: localInstant(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), 6),
+    start: localInstant(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), startHour),
+    end: localInstant(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), endHour),
   };
 }
 

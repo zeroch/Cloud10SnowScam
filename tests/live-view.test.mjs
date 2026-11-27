@@ -163,10 +163,12 @@ test('partial NWS coverage exposes its actual available intervals in the disclos
   assert.doesNotMatch(html, /9:00 PM PT → Fri, Oct 16 12:00 AM PT/);
 });
 
-test('both summary surfaces expose threshold counts without a snowfall timing link', () => {
-  const snapshot=overnightFixture();
+test('both summary surfaces expose threshold counts for their full forecast windows', () => {
   for (const page of ['favorites','stevens']) {
-    const html=view.summary(snapshot,{...state,now:EXAMPLE_NOW,page,ids:['icon_global']});
+    const now = page === 'stevens' ? EXAMPLE_NOW - H : EXAMPLE_NOW;
+    const snapshot = overnightFixture({ now });
+    if (page === 'stevens') snapshot.snowLevels.unshift({ start: now, end: EXAMPLE_NOW + H, feet: 4200 });
+    const html=view.summary(snapshot,{...state,now,page,ids:['icon_global']});
     assert.match(html,/data-target-inches="4"[\s\S]*?3 of 5/);
     assert.match(html,/data-target-inches="5"[\s\S]*?2 of 5/);
     assert.doesNotMatch(html, /data-night-timing|#live-night-timing/);
@@ -252,15 +254,63 @@ test('Tomorrow leads with forecast facts and keeps detailed model evidence in a 
   assert.match(html, /data-tomorrow-horizon="5"/);
 });
 
-test('resort Today stays on the current overnight forecast with a dated or multi-night link', () => {
-  const snapshot = overnightFixture();
-  const current = { ...state, page: 'stevens', now: EXAMPLE_NOW };
+test('resort Today names the opening forecast and separates it from the past 24h report', () => {
+  const now = Date.parse('2026-10-16T13:00Z');
+  const snapshot = overnightFixture({ now });
+  snapshot.morning = { station: { stid: '50', snowfall24h: { value: 4, observedAt: now, state: 'fresh' } } };
+  snapshot.models.forEach((model, index) => {
+    for (const point of model.points) point.snowIn = point.time === Date.parse('2026-10-16T15:00Z') ? (index === 0 ? 1 : 3) : 0;
+  });
+  const current = { ...state, page: 'stevens', now };
   const html = view.summary(snapshot, current);
-  assert.match(html, /<h2 id="tomorrow-snow-label">Today<\/h2><p>Thu, Oct 15<\/p>/);
-  assert.match(html, /Tonight · 6 pm–6 am PT/);
-  assert.match(html, /data-snowfall-value="5"/);
-  assert.doesNotMatch(html, /Forecast horizon|Night to review/);
+  const [card, details] = html.split('<details id="tomorrow-details"');
+  assert.match(card, /Today<\/h2><p>Fri, Oct 16<\/p>/);
+  assert.match(card, /Still expected to fall[\s\S]*?1–3[\s\S]*?6:00 AM–8:00 AM · Fri, Oct 16 PT/);
+  assert.match(card, /Already accumulated[\s\S]*?<strong>4<\/strong>[\s\S]*?Past 24h report · as of Fri, Oct 16 6:00 AM PT/);
+  assert.doesNotMatch(card, /No recent snowfall report/);
+  assert.ok(card.indexOf('Still expected to fall') < card.indexOf('Already accumulated'));
+  assert.match(details, /Opening forecast[\s\S]*?8:00 AM/);
+  assert.match(details, /Personal snow rating: Good/);
+  assert.doesNotMatch(details, /data-target-inches=/);
+  assert.doesNotMatch(html, /Forecast horizon|Night to review|6 pm–6 am/);
   assert.equal(view.summary(snapshot, { ...current, horizon: 5, nightChoice: '2026-10-18' }), html);
+});
+
+test('resort Today leads with reported zero by day and keeps the next opening forecast in Details', () => {
+  const now = Date.parse('2026-10-16T18:00Z');
+  const snapshot = overnightFixture({ now });
+  snapshot.morning = { station: { stid: '50', snowfall24h: { value: 0, observedAt: now - H, state: 'fresh' } } };
+  snapshot.models.forEach((model, index) => {
+    for (const point of model.points) point.snowIn = point.time === Date.parse('2026-10-16T23:00Z') ? (index === 0 ? 0 : 1)
+      : point.time === Date.parse('2026-10-17T15:00Z') ? 7 : 0;
+  });
+  const current = { ...state, page: 'stevens', now };
+  const [card, details] = view.summary(snapshot, current).split('<details id="tomorrow-details"');
+  assert.match(card, /Already accumulated[\s\S]*?<strong>0<\/strong>[\s\S]*?Past 24h report · as of Fri, Oct 16 10:00 AM PT/);
+  assert.match(card, /Still expected to fall[\s\S]*?0–1[\s\S]*?11:00 AM–4:00 PM · Fri, Oct 16 PT/);
+  assert.ok(card.indexOf('Already accumulated') < card.indexOf('Still expected to fall'));
+  assert.match(details, /Opening forecast[\s\S]*?Fri, Oct 16 4:00 PM PT → Sat, Oct 17 8:00 AM PT[\s\S]*?7 in/);
+
+  snapshot.sources[0].status = 'stale';
+  const saved = view.summary(snapshot, current).split('<details id="tomorrow-details"')[0];
+  assert.match(saved, /Still expected to fall[\s\S]*?Saved forecast · update overdue/);
+  snapshot.sources[0].status = 'cached';
+  snapshot.morning.station.snowfall24h.state = 'stale';
+  snapshot.models.forEach(model => model.points.find(point => point.time === now + H).snowIn = null);
+  const missing = view.summary(snapshot, current).split('<details id="tomorrow-details"')[0];
+  assert.match(missing, /Already accumulated[\s\S]*?No recent snowfall report/);
+  assert.match(missing, /Still expected to fall[\s\S]*?Forecast unavailable/);
+});
+
+test('resort Today uses the blend when the complete-model range omits a snowfall signal', () => {
+  const now = Date.parse('2026-10-16T13:00Z');
+  const snapshot = overnightFixture({ now, totals: [0, 0, 0, 0, 0] });
+  const preferred = snapshot.models[0];
+  preferred.points.find(point => point.time === Date.parse('2026-10-16T14:00Z')).snowIn = null;
+  preferred.points.find(point => point.time === Date.parse('2026-10-16T15:00Z')).snowIn = 2;
+  const [card, details] = view.summary(snapshot, { ...state, page: 'stevens', now }).split('<details id="tomorrow-details"');
+  assert.match(card, /Still expected to fall[\s\S]*?<strong>1<\/strong>/);
+  assert.doesNotMatch(details, /Available models show no snow/);
 });
 
 test('Tomorrow uses the same quality rules as the horizon without coloring missing data as good snow', () => {
@@ -518,7 +568,7 @@ test('rain-only summary does not attribute the rain estimate solely to snow leve
   assert.doesNotMatch(entry, /Estimated morning condition|Based on NWS snow level/);
 });
 
-test('Today, the daily table and the model timeline display the hourly blend and respect their model filters', () => {
+test('daily table and timeline filters apply independently of the all-model resort card', () => {
   const snapshot = overnightFixture({ totals: [12, 0, 0, 0, 0] });
   const start = EXAMPLE_NOW + H;
   const options = { ...state, now: EXAMPLE_NOW, start, end: start + 12 * H, ids: snapshot.models.map(model => model.id) };
@@ -528,7 +578,8 @@ test('Today, the daily table and the model timeline display the hourly blend and
   assert.match(view.daily(snapshot, filtered), /Blended snowfall 10 in/);
   assert.match(view.snowTimeline(snapshot, filtered), /data-period-snow="9.6"/);
   const today = view.summary(snapshot, { ...filtered, page: 'stevens' });
-  assert.match(today, /data-snowfall-value="5"/);
+  assert.match(today, /Still expected to fall[\s\S]*?0–12/);
+  assert.match(today, /5 in · 5-model blend/);
   assert.match(today, /5-model blend/);
   assert.match(today, /ECMWF and HRRR split 80% equally \(40% each\)/);
 });
