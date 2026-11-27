@@ -1,38 +1,46 @@
-# Cloud10 on Cloudflare Workers
+# Release Cloud10 to Cloudflare
 
-The production Worker serves the four dashboards, reads weather snapshots from D1 and refreshes them on a cron schedule. A separate static Worker supplies the browser assets through the `ASSETS` binding. The Node server can export those assets from a clean checkout using an empty weather loader.
+Open a pull request against `main`. The **Cloud10 CI** check runs the Node tests, release selection tests, collector handoff checks and Wrangler checks. The branch rules require an up-to-date check and one approving review from someone with write access. Pushing new reviewable changes dismisses the approval. Each successful push build on `main` captures the Worker and browser files together for 90 days.
 
-## Build
+## Choose a release
 
-Run the following from the repository root with Node.js 22.13 or newer and the esbuild CLI on your path.
+1. In GitHub, open **Actions → Release to Cloudflare → Run workflow**. Use the `main` branch. Enter a merged PR number such as `#42`, a release tag, or a full 40-character commit SHA.
+2. Open the run. **Resolve reviewed main build** shows the exact commit and links to its CI run. The commit must be on the first-parent history of `main` and have a retained, successful push build. The job awaiting deployment approval displays that same SHA.
+3. Select **Review deployments → production → Approve and deploy**. The workflow checks the archive digest, uploads the version, and reads its immutable Cloudflare Version URL. It checks every exported response against its manifest and verifies the build SHA, D1 health and all four resort dashboards before switching traffic.
+4. The run summary records the Git SHA and Cloudflare version ID. The final step checks the public hostname. If a check fails, the failed step shows whether traffic switched. Only one production deployment runs at a time.
+
+To roll back, run the same workflow with the earlier PR, tag or SHA while its CI artifact is retained. For an expired artifact or an emergency, use the previously recorded version ID in **Cloudflare → Workers & Pages → cloud10-forecast → Deployments** and select its rollback action. A Worker rollback reuses the current D1 data. Keep any service used by an older version available for as long as you need to roll back to it.
+
+## Repository and Worker setup
+
+The repository has an active branch ruleset for `main`. The importable settings are in [main.json](../../.github/rulesets/main.json). The required check is **Cloud10 CI** from the GitHub Actions app and the bypass list is empty.
+
+Configure the GitHub environment **production** for branch `main` only. Set the owner as required reviewer, allow the owner to approve a deployment they dispatch and disable administrator bypass. These credentials belong in that environment.
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Secret | `CLOUDFLARE_API_TOKEN` | Cloudflare account token with **Individual Workers → Editor** scoped to `cloud10-forecast`. Rotate it in Cloudflare and GitHub before expiry. |
+| Variable | `CLOUDFLARE_ACCOUNT_ID` | Production Cloudflare account ID |
+| Variable | `CLOUDFLARE_D1_DATABASE_ID` | ID of the existing forecast D1 database bound as `DB` |
+
+Enable **Version URLs** in the Worker's **Settings → Domains & Routes**. An uploaded version uses its own static assets and the existing D1 binding. The release workflow uses the existing hostname and cron and performs no database migrations. Its live probes use read-only application endpoints.
+
+For a new installation, provision the Worker, D1, hostname and trigger once. Apply [the shared schema](../../deploy/cloudflare-pilot/schema.sql) followed by [the production schema](../../deploy/cloudflare-production/schema.sql). The example config includes the collector schedule. The separate [pilot configuration](../../deploy/cloudflare-pilot/wrangler.example.jsonc) describes the optional 24-hour measurement window.
+
+## Verify locally
+
+Use Node.js 22.23.3, Python 3 and the pinned tools in the deployment package. From the repository root run
 
 ```sh
-node deploy/cloudflare-production/build-assets.mjs . dist/cloudflare-production
-esbuild deploy/cloudflare-production/index.mjs --bundle --format=esm --target=es2022 --platform=neutral --minify --alias:cloud10-release="$PWD" --outfile=dist/cloudflare-production/production.mjs
+npm ci --prefix deploy/cloudflare-production
+npm test
+python3 -m unittest discover -s deploy/cloudflare-production/tests
+bash deploy/cloudflare-production/build-release.sh
 ```
 
-The output directory contains `production.mjs`, the `assets/` directory and `manifest.json`. The manifest lists each route, exported file, byte size and SHA-256 digest. Both commands use the current checkout so the Worker and browser apply the same forecast calculations.
-
-## Configure a deployment
-
-1. Create a D1 database and apply `deploy/cloudflare-pilot/schema.sql`, followed by `deploy/cloudflare-production/schema.sql`. Production uses the shared snapshot tables and maintains its own collection history.
-2. Upload `dist/cloudflare-production/assets/` as the static Worker (the example service name is `cloud10-forecast-assets`).
-3. Copy `deploy/cloudflare-production/wrangler.example.jsonc` to `deploy/cloudflare-production/wrangler.jsonc`. Set your D1 name and ID, static service name and runtime Worker name. Configure the hostname in your own Cloudflare account.
-4. Deploy the application with `wrangler deploy --config deploy/cloudflare-production/wrangler.jsonc`. The production trigger staggers resort requests across the hour. A new database can use production directly. An existing 24-hour pilot hands forecast collection to production after its 48 half-hour slots.
-
-The optional pilot has its own [configuration example](../../deploy/cloudflare-pilot/wrangler.example.jsonc). Its date-specific trigger and the `pilot_window` table bound the original measurement run. Use a separate database for an independent pilot.
-
-## Verify
-
-Run the collector handoff and routing checks locally against an in-memory database and synthetic upstream responses.
+The script builds `dist/cloudflare-production/`, checks the collector handoff using synthetic upstream responses, runs a Wrangler dry run and serves every manifest entry from a local Worker with a temporary D1 database. To verify an already populated deployment against the same bundle, supply its URL and expected SHA.
 
 ```sh
-esbuild deploy/cloudflare-production/worker.mjs --bundle --format=esm --target=es2022 --platform=neutral --alias:cloud10-release="$PWD" --outfile=dist/cloudflare-production/handoff.mjs
-node deploy/cloudflare-production/check-handoff.mjs dist/cloudflare-production/handoff.mjs
-```
-
-After the live collector has populated all four resorts, the verification script checks the deployed responses against the exported manifest and reads the health, resort and dashboard endpoints. Pass the deployment URL as the first argument.
-
-```sh
-python3 deploy/cloudflare-production/verify-live.py "$FORECAST_URL" dist/cloudflare-production/manifest.json dist/cloudflare-production/verification.json
+python3 deploy/cloudflare-production/verify-live.py "$FORECAST_URL" \
+  dist/cloudflare-production/manifest.json dist/cloudflare-verification.json "$RELEASE_SHA"
 ```

@@ -7,7 +7,8 @@ import pathlib
 import subprocess
 import sys
 
-origin, manifest_path, output = sys.argv[1:]
+origin, manifest_path, output = sys.argv[1:4]
+expected_release = sys.argv[4] if len(sys.argv) > 4 else None
 manifest = json.loads(pathlib.Path(manifest_path).read_text())
 
 
@@ -33,6 +34,8 @@ status, body = fetch("/api/health")
 health = json.loads(body)
 assert status == 200 and health["ok"] and health["currentForecasts"] == 4, health
 assert health["storage"] == "Cloudflare D1", health
+if expected_release is not None:
+    assert health["release"] == expected_release, health
 status, body = fetch("/api/resorts")
 assert status == 200
 resorts = json.loads(body)["resorts"]
