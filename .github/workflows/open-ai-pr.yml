@@ -1,0 +1,86 @@
+name: Open AI pull request
+on:
+  push:
+    branches: ['codex/**']
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Existing codex/ branch to open against main'
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  open:
+    name: Open PR and request zeroch
+    if: >-
+      github.repository == 'zeroch/Cloud10SnowScam' &&
+      ((github.event_name == 'push' && !github.event.deleted) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: cloud10-open-pr-${{ inputs.branch || github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      HEAD_BRANCH: ${{ inputs.branch || github.ref_name }}
+    steps:
+      - name: Open or find the branch PR
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$HEAD_BRANCH" == codex/?* ]] && git check-ref-format "refs/heads/$HEAD_BRANCH" || {
+            echo 'Choose a valid codex/ branch in this repository.' >&2
+            exit 1
+          }
+
+          find_open_pr() {
+            gh api --method GET "repos/$GH_REPO/pulls" -f base=main -f state=open \
+              -f "head=$GITHUB_REPOSITORY_OWNER:$HEAD_BRANCH" |
+              jq -c --arg repo "$GH_REPO" --arg branch "$HEAD_BRANCH" \
+                'map(select(.head.repo.full_name == $repo and .head.ref == $branch)) | first // empty'
+          }
+
+          pr=$(find_open_pr)
+          if [[ -z "$pr" ]]; then
+            encoded=$(jq -rn --arg branch "$HEAD_BRANCH" '$branch | @uri')
+            gh api "repos/$GH_REPO/branches/$encoded" > "$RUNNER_TEMP/head.json"
+            sha=$(jq -er '.commit.sha' "$RUNNER_TEMP/head.json")
+            ahead=$(gh api "repos/$GH_REPO/compare/main...$sha?per_page=1" --jq '.ahead_by')
+            if [[ "$ahead" == 0 ]]; then
+              echo 'This branch has no commits to merge.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            title=$(jq -r '.commit.commit.message | split("\n")[0] | .[:256]' "$RUNNER_TEMP/head.json")
+            jq -r '.commit.commit.message | split("\n")[1:] | join("\n") | ltrimstr("\n")' \
+              "$RUNNER_TEMP/head.json" > "$RUNNER_TEMP/pr-body.md"
+            if ! gh pr create --repo "$GH_REPO" --base main --head "$HEAD_BRANCH" \
+              --title "${title:-$HEAD_BRANCH}" --body-file "$RUNNER_TEMP/pr-body.md" --reviewer zeroch; then
+              echo 'Checking whether the PR was created before the request failed.' >&2
+            fi
+            pr=$(find_open_pr)
+            [[ -n "$pr" ]] || { echo 'The bot could not open the PR.' >&2; exit 1; }
+          fi
+
+          number=$(jq -er '.number' <<< "$pr")
+          url=$(jq -er '.html_url' <<< "$pr")
+          if [[ $(jq -r '.user.login' <<< "$pr") != 'github-actions[bot]' ]]; then
+            echo "::error::PR #$number already exists under another account. See AGENTS.md to replace it."
+            exit 1
+          fi
+
+          if ! jq -e 'any(.requested_reviewers[]?; .login == "zeroch")' <<< "$pr" > /dev/null; then
+            reviews=$(gh api --paginate --slurp "repos/$GH_REPO/pulls/$number/reviews?per_page=100")
+            if ! jq -e 'any(.[][]; .user.login == "zeroch" and (.state == "APPROVED" or .state == "CHANGES_REQUESTED"))' \
+              <<< "$reviews" > /dev/null; then
+              gh api --method POST "repos/$GH_REPO/pulls/$number/requested_reviewers" \
+                --input - --silent <<< '{"reviewers":["zeroch"]}'
+            fi
+          fi
+          printf 'Bot-authored [PR #%s](%s) for review by @zeroch.\n' "$number" "$url" >> "$GITHUB_STEP_SUMMARY"
