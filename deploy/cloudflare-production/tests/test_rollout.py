@@ -6,6 +6,8 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.request import Request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import rollout
@@ -70,6 +72,25 @@ class RolloutTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'unhealthy'):
             self.run_release(probe=lambda: self.fail_probe())
         self.assertEqual(self.api.writes, [])
+
+    def test_public_health_request_identifies_cloud10_to_the_worker(self):
+        origin = 'https://preview.example'
+        payload = {'ok': True, 'storage': 'Cloudflare D1', 'currentForecasts': 4, 'release': SHA}
+        with patch.object(rollout, 'urlopen', return_value=io.BytesIO(json.dumps(payload).encode())) as fetch:
+            rollout.check_health(origin + '/', SHA)
+
+        target = fetch.call_args.args[0]
+        request = Request(target) if isinstance(target, str) else target
+        self.assertEqual(request.full_url, origin + '/api/health')
+        self.assertIn('cloud10', request.get_header('User-agent', '').lower())
+
+    def test_refused_health_request_reports_the_endpoint_and_http_status(self):
+        url = 'https://preview.example/api/health'
+        with patch.object(rollout, 'urlopen', side_effect=HTTPError(url, 403, 'Forbidden', {}, None)):
+            with self.assertRaises((HTTPError, RuntimeError)) as failure:
+                rollout.check_health('https://preview.example', SHA)
+        self.assertIn(url, str(failure.exception))
+        self.assertIn('403', str(failure.exception))
 
     @staticmethod
     def fail_probe():
