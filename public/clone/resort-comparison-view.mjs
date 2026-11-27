@@ -48,10 +48,14 @@ function resortRow(row) {
   const range = showRange ? t('Model range: {0}', snowRange(n.snow)) : '';
   return `<li><a class="resort-row" id="compare-${resort.id}" href="${escape(row.href)}" data-resort-row="${resort.id}" data-snow-quality="${q.key}" aria-busy="${row.loading}">
     <div class="resort-identity"><h2>${escape(resort.name)}</h2><p>${t('{0} · {1} ft', escape(t(resort.pointLabel)), resort.elevationFt.toLocaleString('en-US'))}</p></div>
-    <div class="resort-figure"><strong class="resort-amount" data-snowfall-value="${escape(value)}" aria-label="${escape(amountLabel(n, value, loading))}">${escape(value)}</strong>${!loading && n.estimate.blendedIn !== null ? `<span aria-hidden="true">${weatherUnit('in')}</span>` : ''}</div>
-    <div class="resort-meta">
-      <div class="resort-models"><p class="resort-agreement" data-model-agreement="${n.agreement.key || 'unknown'}">${agreement(row)}</p>${range ? `<p class="resort-range">${escape(range)}</p>` : ''}</div>
-      <div class="resort-conditions"><p class="resort-quality">${escape(q.label)}</p>${note ? `<p class="resort-note">${escape(note)}</p>` : ''}</div>
+    <div class="resort-figure" title="${escape(q.label)}">
+      <strong class="resort-amount" data-snowfall-value="${escape(value)}" aria-label="${escape(amountLabel(n, value, loading))}">${escape(value)}</strong>${!loading && n.estimate.blendedIn !== null ? `<span aria-hidden="true">${weatherUnit('in')}</span>` : ''}
+      <span class="compare-sr-only">${escape(q.label)}</span>
+    </div>
+    <div class="resort-models">
+      <p class="resort-agreement" data-model-agreement="${n.agreement.key || 'unknown'}">${agreement(row)}</p>
+      ${range ? `<p class="resort-range">${escape(range)}</p>` : ''}
+      ${note ? `<p class="resort-note">${escape(note)}</p>` : ''}
     </div>
     <div class="resort-snow-track" aria-hidden="true"><div style="width:${row.fraction * 100}%"></div></div>
     ${icon('caret-right-bold', 'resort-chevron')}
@@ -75,9 +79,9 @@ export function renderComparison(board) {
     <div class="compare-period-line"><h2 id="compare-period">${formatDate(n.end)} · ${remaining ? t('Left by 6 am') : ending ? t('Final hour') : t('Snow by 6 am')}</h2><p class="compare-window">${remaining ? t('{0}–6 am PT · {1} left', formatTime(n.start, { minute: undefined }).toLowerCase(), depthUnitName()) : t('6 pm–6 am PT · {0}', depthUnitName())}</p></div>
     </div>
     ${remaining || ending ? `<p class="compare-notice">${t('Already-fallen snow is unconfirmed.')}</p>` : ''}
-    <div class="compare-columns" aria-hidden="true"><span>${t('Mountain')}</span><span>${t('Snowfall')}</span><span>${t('Model agreement')}</span><span>${t('Snow quality')}</span></div>
+    <div class="compare-columns" aria-hidden="true"><span>${t('Mountain')}</span><span>${t('Snowfall')}</span><span>${t('Model agreement')}</span></div>
   <ul class="resort-comparison-list" aria-label="${t('Resorts, overnight snowfall, model agreement and estimated quality')}">${board.rows.map(resortRow).join('')}</ul>
-    <div class="compare-metadata"><p>${t('Blended snowfall · estimated quality')}</p><p>${escape(freshness)}</p></div>
+    <div class="compare-metadata"><p>${t('Blended snowfall · estimated quality')} · ${t('Full bar at {0}', depthThreshold(board.maximum))}</p><p>${escape(freshness)}</p></div>
   </section>
   <div class="compare-foot">
   <details id="compare-quality-key" class="compare-quality-key"><summary id="compare-quality-button"><span>${t('How snow quality works')}</span>${icon('caret-right-bold','compare-chevron')}</summary>
@@ -87,5 +91,5 @@ export function renderComparison(board) {
     <p>${t('Snow uncertain: the middle model forecast is zero, but some models predict snow. Light snow: less than {0} of new snow. Uncertain or unavailable quality is also gray.', depthThreshold(1, true))}</p>
     <p>${t('Agree, mixed and split describe High, Medium and Low model agreement about snowfall, not the probability of snow. Open a resort for exact model totals and condition rules.')}</p>
   </details>
-  <details id="compare-sources" class="compare-sources"><summary id="compare-sources-button"><span>${t('Sources & updates')}</span>${icon('caret-right-bold','compare-chevron')}</summary><ul>${board.rows.map(({ resort, night, failed }) => `<li><strong>${escape(resort.name)}</strong><span>${night.source?.fetchedAt ? t('{0} {1} {2} PT', night.forecastState === 'stale' ? t('Saved') : t('Collected'), formatDate(night.source.fetchedAt), formatTime(night.source.fetchedAt)) : t('No saved forecast')}${failed ? t(' · refresh failed') : ''}</span></li>`).join('')}</ul><p>${t('Model forecasts from')} <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> ${t('(CC BY 4.0); snow levels from')} <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">NWS</a>${t('. Snowfall uses an hourly weighted blend rounded up to whole {0}. Bar lengths share one scale across these four resorts.', depthUnitName())}</p><p>${t('Collection runs on a schedule. This checks for newer saved forecasts.')}</p><button id="compare-refresh" data-compare-refresh aria-disabled="${board.rows.some(r => r.loading)}">${board.rows.some(r => r.loading) ? t('Checking…') : t('Check saved forecasts')}</button></details></div>`;
+  <details id="compare-sources" class="compare-sources"><summary id="compare-sources-button"><span>${t('Sources & updates')}</span>${icon('caret-right-bold','compare-chevron')}</summary><ul>${board.rows.map(({ resort, night, failed }) => `<li><strong>${escape(resort.name)}</strong><span>${night.source?.fetchedAt ? t('{0} {1} {2} PT', night.forecastState === 'stale' ? t('Saved') : t('Collected'), formatDate(night.source.fetchedAt), formatTime(night.source.fetchedAt)) : t('No saved forecast')}${failed ? t(' · refresh failed') : ''}</span></li>`).join('')}</ul><p>${t('Model forecasts from')} <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> ${t('(CC BY 4.0); snow levels from')} <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">NWS</a>${t('. Snowfall uses an hourly weighted blend rounded up to whole {0}. Bars use whole-inch increments.', depthUnitName())}</p><p>${t('Collection runs on a schedule. This checks for newer saved forecasts.')}</p><button id="compare-refresh" data-compare-refresh aria-disabled="${board.rows.some(r => r.loading)}">${board.rows.some(r => r.loading) ? t('Checking…') : t('Check saved forecasts')}</button></details></div>`;
 }
