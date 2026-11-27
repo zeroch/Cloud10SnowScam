@@ -17,6 +17,21 @@ async function browserView(name) {
 const view = await browserView('live-view');
 const { renderComparison } = await browserView('resort-comparison-view');
 
+test('the 36-hour card localizes the three windows, cumulative snow, precipitation type and freezing level', ctx => {
+  ctx.after(() => { setDisplayLanguage('en'); setDisplayUnits({}); });
+  setDisplayLanguage('zh-CN', chinese);
+  setDisplayUnits({ depth: 'cm', temperature: 'C' });
+  const now = Date.parse('2026-11-27T14:00:00Z');
+  const points = Array.from({ length: 37 }, (_, i) => ({ time: now + i * 3_600_000, snowIn: .5, freezingLevelFt: 5100 }));
+  const data = { resort: RESORTS[0], models: [{ id: 'ecmwf_ifs025', points }], sources: [{ id: 'forecast', status: 'cached', fetchedAt: now }] };
+  assert.equal(typeof view.hourlySnowCard, 'function');
+  const html = view.hourlySnowCard(data, { now, hourlyPage: 2 });
+  for (const value of ['逐小时降雪量', '36 小时累计降雪', '45.72', '1.27', '厘米', '零度层高度', '5,100', '湿雪']) assert.ok(html.includes(value), value);
+  assert.equal((html.match(/data-hourly-page=/g) || []).length, 3);
+  assert.match(html, /data-hourly-page="2" aria-pressed="true"/);
+  assert.doesNotMatch(html, /温度|液态降水量|12-hour total|Hour \(PT\)|undefined|NaN/);
+});
+
 test('unit preferences convert forecast amounts without changing the forecast or snow rating', ctx => {
   ctx.after(() => setDisplayUnits({}));
   const entries = resortComparisonFixture();

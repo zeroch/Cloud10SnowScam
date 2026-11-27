@@ -2,7 +2,7 @@ import { displayLanguage, t, modelCountLabel, convertWeather, depthNumber, depth
 import { RESORT, MORNING_RESORTS, getResort, snowLevelBands, stationUrl } from '/lib/config.mjs';
 import { HOUR, formatDate, formatTime, localParts, isPacificWeekend } from '/lib/time.mjs';
 import { finite, stationSummary, summarizeSnowLevel } from '/lib/conditions.mjs';
-import { METRICS, forecastRange, createSnowfallBlend, SNOW_BLEND, forecastPeriods, forecastBins, intervalTotal, tomorrowForecast, horizonForecast, fifteenDayForecast, personalSnowQuality, snowAmount, snowRange, comparisonSeries } from '/lib/forecast.mjs';
+import { METRICS, forecastRange, createSnowfallBlend, SNOW_BLEND, forecastPeriods, forecastBins, intervalTotal, tomorrowForecast, horizonForecast, fifteenDayForecast, hourlySnowForecast, personalSnowQuality, snowAmount, snowRange, comparisonSeries } from '/lib/forecast.mjs';
 
 export const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const timestamp = value => finite(value) ? t('{0} {1} PT', formatDate(value), formatTime(value)) : t('Unavailable');
@@ -154,6 +154,70 @@ export function extendedOutlook(data, state) {
     <p class="mountain-footnote">${t('Daily and five-day forecasts add up the hourly blend, then round up to whole {1}. Counts include every contributing model. Ranges use models that cover the full period. Today shows remaining full hours only{0}.', days[0].ending ? t(' (no full hours remain)') : '', depthUnitName())}</p>
     <details id="extended-blend-method" class="forecast-context live-preserve-details"><summary>${t('How snowfall is blended')}</summary><p>${snowBlendMethod()}</p></details>
     ${forecastStatus(data)}
+  </article>`;
+}
+
+function hourlyDepth(inches) {
+  if (!finite(inches)) return '—';
+  const value = convertWeather(inches, 'in');
+  return value > 0 && value < 0.01 ? '&lt;0.01' : value.toFixed(2);
+}
+
+export function hourlySnowCard(data, state) {
+  const forecast = hourlySnowForecast(data, state.now);
+  const page = [0, 1, 2].includes(state.hourlyPage) ? state.hourlyPage : 0;
+  const hours = forecast.hours.slice(page * 12, (page + 1) * 12);
+  const resort = resortFor(data);
+  const point = t('{0}, {1} ft', t(resort.pointLabel), resort.elevationFt.toLocaleString(displayLanguage));
+  const unit = weatherUnit('in');
+  const hourName = (time, zone) => formatTime(time, { minute: undefined, timeZoneName: zone }).replace(/AM|PM/g, s => s.toLowerCase());
+  function hourLabel(time) {
+    const name = hourName(time);
+    // Across the fall clock change, both copies of 1 am need a zone even on adjacent pages.
+    return name === hourName(time - HOUR) || name === hourName(time + HOUR) ? hourName(time, 'short') : name;
+  }
+  const windows = [0, 1, 2].map(index => {
+    const from = forecast.hours[index * 12].start, to = from + 12 * HOUR;
+    return `<button type="button" id="hourly-window-${index}" data-hourly-page="${index}" aria-pressed="${index === page}" aria-controls="hourly-table-scroll" aria-label="${escape(timestamp(from))} – ${escape(timestamp(to))}"><strong>${formatDate(from)}</strong><span>${hourLabel(from)} – ${hourLabel(to)}</span></button>`;
+  }).join('');
+  const headings = hours.map((hour, i) => {
+    const midnight = i > 0 && localParts(hour.start).hour === 0;
+    return `<th scope="col" title="${escape(timestamp(hour.start))}">${hourLabel(hour.start)}${midnight ? `<small>${formatDate(hour.start, { month: undefined, day: undefined })}</small>` : ''}</th>`;
+  }).join('');
+  function row(label, note, cell, className = '') {
+    return `<tr class="${className}"><th scope="row">${label}${note ? `<small>${note}</small>` : ''}</th>${hours.map(hour => `<td>${cell(hour)}</td>`).join('')}</tr>`;
+  }
+  const maxSnow = Math.max(0, ...forecast.hours.map(hour => hour.snowIn ?? 0));
+  const bars = row(t('New snow'), unit, hour => {
+    const height = maxSnow && hour.snowIn > 0 ? hour.snowIn / maxSnow * 100 : 0;
+    return `<div class="hourly-bar-track" data-phase="${hour.phase}"><div class="hourly-bar" style="height:${height}%"><span>${hourlyDepth(hour.snowIn)}</span></div></div>`;
+  }, 'hourly-bars');
+  const type = { rain: t('Rain'), wet: t('Wet snow'), snow: t('Snow'), none: t('None'), unknown: t('Unknown') };
+  const weekday = formatDate(forecast.start, { month: undefined, day: undefined });
+  const since = t('since {0} · {1}', `${weekday} ${hourLabel(forecast.start)}`, unit);
+  const covered = forecast.hours.filter(hour => finite(hour.snowIn)).length;
+  return `<article class="hourly-snow" aria-labelledby="hourly-heading">
+    <header class="hourly-heading"><div><h2 id="hourly-heading">${t('Hourly snow accumulation')}</h2>
+      <p>${escape(t(resort.name))} · ${escape(point)}</p></div>
+      <div class="hourly-total"><strong>${hourlyDepth(forecast.totalIn)}${finite(forecast.totalIn) ? ` <small>${unit}</small>` : ''}</strong><span>${t('36-hour snow total')}</span></div>
+    </header>
+    <div class="hourly-nav" role="group" aria-label="${t('Next 36 hours in 12-hour windows')}">${windows}</div>
+    <div class="hourly-scroll" id="hourly-table-scroll" data-live-scroll="hourly-${hours[0].start}" role="region" tabindex="0" aria-label="${t('Hourly forecast table, scroll for later hours')}">
+      <table><caption class="cloud-sr-only">${t('Snowfall for each hour starting at the time shown, Pacific time')}</caption>
+        <colgroup><col class="hourly-label-column"><col span="12"></colgroup>
+        <thead><tr><th scope="col">${t('Hour (PT)')}</th>${headings}</tr></thead>
+        <tbody>${bars}
+          ${row(t('Precip. type'), '', hour => `<span class="hourly-type" data-phase="${hour.phase}">${type[hour.phase]}</span>`)}
+          ${row(t('Snow total'), since, hour => hourlyDepth(hour.totalIn), 'hourly-running')}
+          ${row(t('Freezing level'), t('ft above sea level'), hour => finite(hour.freezingLevelFt) ? (Math.round(hour.freezingLevelFt / 100) * 100).toLocaleString(displayLanguage) : '—')}
+        </tbody></table>
+    </div>
+    <footer>${forecastStatus(data)}
+      ${covered < forecast.hours.length ? `<p>${t('Snowfall covers {0} of 36 hours. The total needs all 36.', covered)}</p>` : ''}
+      <details id="hourly-type-guide" class="live-preserve-details"><summary>${t('How types are estimated')}</summary>
+        <p>${t('With snowfall, a freezing level at or above the forecast point indicates wet snow. A lower freezing level indicates snow. Rain requires zero forecast snow and warm precipitation in at least three models and a majority of reporting models.')}</p>
+      </details>
+    </footer>
   </article>`;
 }
 

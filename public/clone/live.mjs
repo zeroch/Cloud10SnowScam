@@ -38,7 +38,8 @@ redirectRetiredForecastAnchor();
 const state = { page: document.body.dataset.page, horizon: readHorizon(), nightChoice: readNightChoice(), days: readComparisonDays() || readHorizon() || ([1, 3, 5].includes(saved.days) ? saved.days : 3), metric: METRICS[saved.metric] ? saved.metric : 'snow', ids: [], excluded: Array.isArray(saved.excluded) ? saved.excluded : [], precipHours: saved.precipHours === 3 ? 3 : 6, precipField: saved.precipField === 'precipIn' ? 'precipIn' : 'snowIn', precipTotals: saved.precipTotals === true, precipPeriod: 'all', section: 'live-daily', index: 0, snapshot: null, loading: false, failure: false };
 document.body.dataset.forecastView = state.page !== 'stevens' && state.horizon ? String(state.horizon) : 'tomorrow';
 let active = false, chart, setCrosshair, resizeTimer, initialSectionOpened = false;
-const renderers = { summary: view.summary, 'extended-outlook': view.extendedOutlook, 'morning-conditions': view.morningConditions, 'comparison-controls': view.comparisonControls, 'daily-forecast': view.daily, 'forecast-range': view.comparison, 'precipitation-by-model': view.precipitation, outlook: view.outlook, stations: view.stations };
+const renderers = { summary: view.summary, 'extended-outlook': view.extendedOutlook, 'hourly-snow': view.hourlySnowCard, 'morning-conditions': view.morningConditions, 'comparison-controls': view.comparisonControls, 'daily-forecast': view.daily, 'forecast-range': view.comparison, 'precipitation-by-model': view.precipitation, outlook: view.outlook, stations: view.stations };
+const sections = ['live-overnight', 'live-extended', 'live-hourly', 'live-conditions', 'live-daily', 'live-models', 'live-precip'];
 let renderVersion = 0, sectionFrame;
 
 function layoutContext() {
@@ -59,7 +60,6 @@ function updateSectionNavigation() {
   const sectionNav = $('.cloud-evidence-nav'), sectionNavBox = sectionNav?.getBoundingClientRect();
   const navHeight = sectionNavBox && getComputedStyle(sectionNav).position === 'sticky' && sectionNavBox.top <= header + 1 ? sectionNavBox.height : 0;
   const offset = header + navHeight + (toolbar && getComputedStyle(toolbarElement).position === 'sticky' && toolbar.top <= header + navHeight + 1 && toolbar.bottom > header ? toolbar.height : 0);
-  const sections = ['live-overnight','live-extended','live-conditions','live-daily','live-models','live-precip'];
   const visible = sections.map(id => {
     const box = document.getElementById(id)?.getBoundingClientRect();
     return { id, height: box ? Math.max(0,Math.min(innerHeight,box.bottom)-Math.max(offset,box.top)) : 0 };
@@ -211,7 +211,7 @@ async function refresh(force = false) {
       initialSectionOpened = true;
       const section = location.hash.slice(1);
       if (section === 'horizon-details') openHorizonDetails();
-      else if (['live-overnight','live-conditions','live-extended','live-daily','live-models','live-precip'].includes(section)) openSection(section);
+      else if (sections.includes(section)) openSection(section);
     }
   }
 }
@@ -249,6 +249,10 @@ export function startLive() {
       history.pushState(null, '', url); render(button); requestAnimationFrame(() => openSection('live-overnight'));
     }
     else if (button.dataset.horizonNight) selectHorizonNight(button.dataset.horizonNight);
+    else if (button.hasAttribute('data-hourly-page')) {
+      state.hourlyPage = Number(button.dataset.hourlyPage);
+      render(button);
+    }
     else if (button.hasAttribute('data-night-details')) {
       const details = $('.cloud-night-details'); details.open = true;
       details.querySelector('summary').focus(); details.scrollIntoView({ block: 'start' });
@@ -324,7 +328,7 @@ export function startLive() {
     if (state.horizon || readComparisonDays()) state.days = readComparisonDays() || state.horizon;
     render();
     if (location.hash === '#horizon-details') openHorizonDetails();
-    else if (['#live-overnight','#live-conditions','#live-extended','#live-daily','#live-models','#live-precip'].includes(location.hash)) openSection(location.hash.slice(1));
+    else if (sections.includes(location.hash.slice(1))) openSection(location.hash.slice(1));
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); refresh(); } });
   setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60_000);
