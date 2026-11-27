@@ -3,6 +3,7 @@ import { RESORTS, MORNING_RESORTS, getResort, resortCacheKey, stationUrl } from 
 import { parseNwac } from 'cloud10-release/src/provider-core.mjs';
 import { parseRoadReports } from 'cloud10-release/src/morning-sources.mjs';
 import { buildAdvice } from 'cloud10-release/src/advice.mjs';
+import { COLLECTION_INTERVAL } from 'cloud10-release/src/time.mjs';
 
 const minute = 60_000, halfHour = 30 * minute, hour = 2 * halfHour;
 const favorites = new Set(['/', '/index.html', '/user/favorites', '/user/favorites/locations/snow-summary']);
@@ -43,29 +44,31 @@ function stationJob(resort) {
 export async function collectProduction(db, scheduled, upstream = fetch, clock = Date.now) {
   const now = clock(), tick = Math.floor(scheduled / minute);
   if (now < scheduled || now - scheduled >= halfHour) return;
+  const minuteOfHour = tick % 60, hourSlot = Math.floor(tick / 60);
+  const collecting = hourSlot % (COLLECTION_INTERVAL / hour) === 0 && minuteOfHour >= 22 && minuteOfHour <= 34;
+  if (minuteOfHour !== 0 && !collecting) return;
   await db.prepare('INSERT INTO production_clock (id,scheduled_ms) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET scheduled_ms=max(scheduled_ms,excluded.scheduled_ms)').bind(scheduled).run();
-  const minuteOfHour = tick % 60;
-  // Stations use a separate hourly slot and never spend Open-Meteo quota.
-  if (minuteOfHour >= 31 && minuteOfHour <= 34) {
-    await sample(db, stationJob(RESORTS[minuteOfHour - 31]), Math.floor(tick / 60), upstream, clock, true);
+  if (!collecting) return;
+  // Keep the existing slot numbers so new attempts can supersede saved data.
+  if (minuteOfHour >= 31) {
+    await sample(db, stationJob(RESORTS[minuteOfHour - 31]), hourSlot, upstream, clock, true);
     return;
   }
-  const phase = (tick - 22 + 30) % 30;
-  if (phase > 8) return;
+  const phase = minuteOfHour - 22;
   const window = await db.prepare('SELECT start_ms FROM pilot_window WHERE id=1').first();
   const start = window ? Math.floor(window.start_ms / minute) : 22;
   const slot = Math.floor((tick - phase - start) / 30);
   // The pilot owns exactly 48 forecast slots. Both clocks may fire in the same
   // minute at handoff. Ownership is based on the slot, not arrival seconds.
   if (window && slot < 48) return;
-  const job = jobFor(phase, slot);
+  const job = jobFor(phase);
   if (job) await sample(db, job, slot, upstream, clock, true);
-  if (minuteOfHour === 0) {
+  if (minuteOfHour === 30) {
     // Cooldowns remain effective even when their original sample is old.
     await db.prepare('DELETE FROM production_attempts WHERE slot < ? AND (request_ms IS NULL OR request_ms < ?) AND coalesce(retry_until,0) < ? AND provider != ?')
       .bind(slot - 336, now - 7 * 24 * hour, now, 'nwac').run();
     await db.prepare("DELETE FROM production_attempts WHERE provider='nwac' AND slot < ? AND coalesce(retry_until,0) < ?")
-      .bind(Math.floor(tick / 60) - 168, now).run();
+      .bind(hourSlot - 168, now).run();
   }
 }
 
@@ -81,10 +84,10 @@ async function morning(db, resort, now) {
   const raw = measurements && JSON.parse(measurements.payload);
   const report = reports && parseRoadReports({ features: JSON.parse(reports.payload).map(attributes => ({ attributes })) })[road.passName];
   const sources = [
-    { id: 'nwac', name: 'NWAC · ' + station.name, url: stationUrl(station), row: measurements, ttl: hour },
-    { id: 'wsdot', name: 'WSDOT pass reports', url: 'https://wsdot.com/travel/real-time/mountainpasses', row: reports, ttl: halfHour },
-  ].map(({ row, ttl, ...info }) => ({ ...info, fetchedAt: row?.fetched_ms ?? null, refreshAfterMs: ttl,
-    status: !row ? 'unavailable' : row.outcome === 'ok' && now - row.fetched_ms < ttl ? 'cached' : 'stale',
+    { id: 'nwac', name: 'NWAC · ' + station.name, url: stationUrl(station), row: measurements },
+    { id: 'wsdot', name: 'WSDOT pass reports', url: 'https://wsdot.com/travel/real-time/mountainpasses', row: reports },
+  ].map(({ row, ...info }) => ({ ...info, fetchedAt: row?.fetched_ms ?? null, refreshAfterMs: COLLECTION_INTERVAL,
+    status: !row ? 'unavailable' : row.outcome === 'ok' && now - row.fetched_ms < COLLECTION_INTERVAL ? 'cached' : 'stale',
     snapshotId: row?.slot ?? null, error: null }));
   return { morning: { station: { ...station, snowfall24h: raw?.snowfall24h ?? null, depth: raw?.depth ?? null,
     temperature: raw?.temperature ?? null }, road: report ? { ...report, url: road.url } : null, roadLink: road.url }, sources };
@@ -102,7 +105,8 @@ async function health(db, now, release) {
     station: timestamps.get(stationKey(MORNING_RESORTS[resort.id].station)) ?? null,
   }]));
   const pilotOwnsForecasts = window && now < Math.floor(window.start_ms / minute) * minute + 24 * hour;
-  const currentForecasts = Object.values(resorts).filter(item => item.forecast && now - item.forecast < 2 * hour).length;
+  const maxForecastAge = pilotOwnsForecasts ? 2 * hour : COLLECTION_INTERVAL + hour;
+  const currentForecasts = Object.values(resorts).filter(item => item.forecast && now - item.forecast < maxForecastAge).length;
   const productionLastScheduledAt = heartbeat?.scheduled_ms ?? null;
   const lastScheduledAt = pilotOwnsForecasts ? window.last_pilot_ms : productionLastScheduledAt;
   const running = lastScheduledAt != null && now - lastScheduledAt < 2 * hour;

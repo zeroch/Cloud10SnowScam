@@ -94,8 +94,10 @@ test('scheduled collection reads NWAC stations independently and dashboard reads
 
 test('a failed NWAC or WSDOT refresh keeps that feed’s last reading and timestamp', async t => {
   let clock = NOW, failStation = false, failRoad = false;
+  const calls = [];
   const fetchFn = async input => {
     const url = String(input);
+    calls.push(url);
     if (url.includes('/stevens-pass-brooks')) return stationPage('50', [[clock, failStation ? -2 : 12, failStation ? null : 32, failStation ? null : 5]]);
     if (url.includes('TravelInfoMtPassReports')) return failRoad ? new Response('', { status: 503 }) : Response.json(roads);
     return new Response('', { status: 503 });
@@ -105,10 +107,15 @@ test('a failed NWAC or WSDOT refresh keeps that feed’s last reading and timest
   await runtime.collectOnce();
 
   failRoad = true;
-  clock += 31 * 60_000;
+  const firstBatch = calls.length;
+  clock += 6 * H - 1;
+  await runtime.collectOnce();
+  assert.equal(calls.length, firstBatch);
+  clock++;
   await runtime.collectOnce();
   const roadFailure = ageSnapshot(await runtime.loadDashboard({ resortId: 'stevenspass' }), clock);
   assert.equal(roadFailure.sources.find(s => s.id === 'wsdot').status, 'stale');
+  assert.equal(roadFailure.sources.find(s => s.id === 'wsdot').fetchedAt, NOW);
   assert.equal(roadFailure.sources.find(s => s.id === 'nwac')?.status, 'cached');
   assert.equal(roadFailure.morning.road.reportState, 'unknown');
   assert.equal(roadFailure.morning.road.condition, '<b>icy</b>');
@@ -116,11 +123,12 @@ test('a failed NWAC or WSDOT refresh keeps that feed’s last reading and timest
 
   failRoad = false;
   failStation = true;
-  clock += 31 * 60_000;
+  clock += 6 * H;
   await runtime.collectOnce();
   const stationFailure = ageSnapshot(await runtime.loadDashboard({ resortId: 'stevenspass' }), clock);
   assert.equal(stationFailure.sources.find(s => s.id === 'wsdot').status, 'cached');
   assert.equal(stationFailure.sources.find(s => s.id === 'nwac')?.status, 'stale');
-  assert.deepEqual(stationFailure.morning.station.depth, { value: 12, observedAt: NOW, state: 'stale' });
-  assert.deepEqual(stationFailure.morning.station.snowfall24h, { value: 5, observedAt: NOW, state: 'stale' });
+  assert.equal(stationFailure.sources.find(s => s.id === 'nwac').fetchedAt, NOW + 6 * H);
+  assert.deepEqual(stationFailure.morning.station.depth, { value: 12, observedAt: NOW + 6 * H, state: 'stale' });
+  assert.deepEqual(stationFailure.morning.station.snowfall24h, { value: 5, observedAt: NOW + 6 * H, state: 'stale' });
 });

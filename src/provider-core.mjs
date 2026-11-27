@@ -142,7 +142,9 @@ export function validateSnowLevelCoverage(data, now) {
   return data;
 }
 
-export function createDashboardLoader(cache, { resort = RESORT, forecastTransport = 'server', nwacEnabled = true, fetchFn = fetch, validateForecast = false } = {}) {
+export function createDashboardLoader(cache, {
+  resort = RESORT, forecastTransport = 'server', nwacEnabled = true, fetchFn = fetch, validateForecast = false, collectionIntervalMs,
+} = {}) {
 if (!getResort(resort.id)) throw new Error('Unknown resort');
 const stationPages = resort.id === RESORT.id ? STATION_PAGES : {};
 const observationsEnabled = nwacEnabled && Object.keys(stationPages).length > 0;
@@ -151,12 +153,12 @@ return async function loadDashboard({ force = false, now = Date.now() } = {}) {
   const jobs = [
     // Six units conservatively reserve the longer-than-two-week request and
     // all five models within the existing local provider budget.
-    { id: 'forecast', cacheKey: resortCacheKey(resort, 'forecast'), provider: 'open-meteo', cost: 6, name: 'Open-Meteo · 5 models', url: 'https://open-meteo.com/en/docs', ttl: HOUR / 2, loader: async () => {
+    { id: 'forecast', cacheKey: resortCacheKey(resort, 'forecast'), provider: 'open-meteo', cost: 6, name: 'Open-Meteo · 5 models', url: 'https://open-meteo.com/en/docs', ttl: collectionIntervalMs ?? HOUR / 2, loader: async () => {
       const data = parseForecast(JSON.parse(await fetchText(forecastUrl, fetchFn, now)));
       return validateForecast ? validateForecastCoverage(data, now) : data;
     } },
-    ...Object.entries(stationPages).map(([id, page]) => ({ id, disabled: !observationsEnabled, provider: 'nwac', name: page.name, url: stationUrl(page), ttl: HOUR / 4, loader: async () => ({ stations: parseNwac(await fetchText(stationUrl(page), fetchFn, now), id) }) })),
-    { id: 'nws', cacheKey: resortCacheKey(resort, 'nws'), provider: 'nws', name: 'NWS · snow level', url: 'https://www.weather.gov/sew/', ttl: HOUR, loader: async () => {
+    ...Object.entries(stationPages).map(([id, page]) => ({ id, disabled: !observationsEnabled, provider: 'nwac', name: page.name, url: stationUrl(page), ttl: collectionIntervalMs ?? HOUR / 4, loader: async () => ({ stations: parseNwac(await fetchText(stationUrl(page), fetchFn, now), id) }) })),
+    { id: 'nws', cacheKey: resortCacheKey(resort, 'nws'), provider: 'nws', name: 'NWS · snow level', url: 'https://www.weather.gov/sew/', ttl: collectionIntervalMs ?? HOUR, loader: async () => {
       const location = await cache.get(resortCacheKey(resort, 'nws-point'), async () => {
         const json = JSON.parse(await fetchText(`https://api.weather.gov/points/${resort.latitude},${resort.longitude}`, fetchFn, now));
         const gridUrl = json.properties?.forecastGridData;
@@ -175,7 +177,9 @@ return async function loadDashboard({ force = false, now = Date.now() } = {}) {
     ? { data: null, fetchedAt: null, status: 'disabled', error: 'NWAC collection is disabled for this deployment.' }
     : job.id === 'forecast' && forecastTransport === 'browser'
     ? { data: null, fetchedAt: null, status: 'unavailable', error: null }
-    : await cache.get(job.cacheKey || job.id, job.loader, job.ttl, { force, now, provider: job.provider, cost: job.cost || 1 }) })));
+    : await cache.get(job.cacheKey || job.id, job.loader, job.ttl, {
+      force, now, provider: job.provider, cost: job.cost || 1, minAttemptIntervalMs: collectionIntervalMs,
+    }) })));
   const sources = outcomes.map(({ job, result }) => ({ id: job.id, name: job.name, url: result.data?.url || job.url, status: job.id === 'nws' && finite(result.data?.updatedAt) && now - result.data.updatedAt > 24 * HOUR ? 'stale' : result.status, fetchedAt: result.fetchedAt, issuedAt: result.data?.updatedAt || null, refreshAfterMs: job.ttl, error: result.error, snapshotId: result.snapshotId ?? null, nextAttemptAt: result.nextAttemptAt ?? null }));
   const get = id => outcomes.find(item => item.job.id === id)?.result;
   const stations = Object.keys(stationPages).flatMap(id => (get(id)?.data?.stations || stationPages[id].stations.map(s => ({ ...s, url: stationUrl(stationPages[id]), rows: [], notices: [] }))).map(station => ({ ...station, sourceState: get(id)?.status || 'unavailable', fetchedAt: get(id)?.fetchedAt || null })));

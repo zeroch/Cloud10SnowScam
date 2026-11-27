@@ -1,6 +1,6 @@
 import { MODELS, RESORTS, getResort, resortCacheKey } from '../../src/config.mjs';
 import { buildAdvice } from '../../src/advice.mjs';
-import { nightWindow } from '../../src/time.mjs';
+import { COLLECTION_INTERVAL, nightWindow } from '../../src/time.mjs';
 import {
   createDashboardLoader, forecastRequestUrl, parseForecast, parseSnowLevel,
   validateForecastCoverage, validateSnowLevelCoverage,
@@ -44,7 +44,7 @@ function forecastSnapshot(body, now) {
   return { ...forecast, adviceDays, adviceModelIds: forecast.models.map(model => model.id) };
 }
 
-export function jobFor(phase, slot) {
+export function jobFor(phase, { collectSnowLevels = true } = {}) {
   if (phase === 8) return roads;
   if (phase < 4) {
     const resort = RESORTS[phase];
@@ -55,7 +55,7 @@ export function jobFor(phase, slot) {
       parse: forecastSnapshot,
     };
   }
-  if (slot % 2 !== 0) return null;
+  if (!collectSnowLevels) return null;
   const resort = RESORTS[phase - 4];
   const url = 'https://api.weather.gov/gridpoints/' + GRID[resort.id];
   return { provider: 'nws', key: resortCacheKey(resort, 'nws'), url,
@@ -155,7 +155,7 @@ export async function collect(db, scheduledMs, fetchFn = fetch, clock = Date.now
   const roundMinute = minute - phase;
   const slot = Math.floor((roundMinute - Math.floor(window.start_ms / MINUTE)) / 30);
   if (slot < 0 || slot >= 48) return;
-  const job = jobFor(phase, slot);
+  const job = jobFor(phase, { collectSnowLevels: slot % 2 === 0 });
   if (!job) return;
   await db.prepare('INSERT OR IGNORE INTO pilot_cycles (slot,scheduled_ms) VALUES (?,?)').bind(slot, roundMinute * MINUTE).run();
   await sample(db, job, slot, fetchFn, clock);
@@ -203,7 +203,9 @@ export async function dashboard(db, resort, now, { production = false, context, 
     })) : JSON.parse(modelsJson);
     return { ...state, data: { grid: JSON.parse(saved.grid), models: inputs } };
   } };
-  const data = await createDashboardLoader(cache, { resort, nwacEnabled: false })({ now });
+  const data = await createDashboardLoader(cache, {
+    resort, nwacEnabled: false, collectionIntervalMs: production ? COLLECTION_INTERVAL : undefined,
+  })({ now });
   const { models, ...metadata } = data;
   if (context) {
     metadata.morning = context.morning;

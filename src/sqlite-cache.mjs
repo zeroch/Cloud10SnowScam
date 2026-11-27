@@ -41,24 +41,30 @@ export function createSqliteCache(path, { leaseMs = 120_000, historyBytes = 200_
     catch (error) { db.exec('ROLLBACK'); throw error; }
   };
 
-  function read(key, ttl, { now = Date.now() } = {}) {
+  function nextAttemptAt(row, minAttemptIntervalMs) {
+    // Existing rows can have an earlier due time from the previous schedule or a failed fetch.
+    if (row?.attempt_at == null || minAttemptIntervalMs === 0) return row?.next_at ?? null;
+    return Math.max(row.next_at, row.attempt_at + minAttemptIntervalMs);
+  }
+
+  function read(key, ttl, { now = Date.now(), minAttemptIntervalMs = 0 } = {}) {
     const row = entry(key), data = row?.payload ? JSON.parse(row.payload) : null;
     const age = row?.fetched_at == null ? Infinity : now - row.fetched_at;
     return {
       data, fetchedAt: row?.fetched_at ?? null, snapshotId: row?.snapshot_id ?? null,
       status: data == null ? 'unavailable' : !row.error && age >= 0 && age < ttl ? 'cached' : 'stale',
       error: row?.error ?? (data == null ? 'Waiting for scheduled collection' : null),
-      lastAttemptAt: row?.attempt_at ?? null, nextAttemptAt: row?.next_at ?? null,
+      lastAttemptAt: row?.attempt_at ?? null, nextAttemptAt: nextAttemptAt(row, minAttemptIntervalMs),
     };
   }
 
-  async function get(key, loader, ttl, { now = Date.now(), provider = null, cost = 1 } = {}) {
+  async function get(key, loader, ttl, { now = Date.now(), provider = null, cost = 1, minAttemptIntervalMs = 0 } = {}) {
     if (!/^[a-z0-9-]+$/i.test(key) || !Number.isFinite(ttl) || ttl <= 0) throw new Error('Invalid collection job');
     const token = randomUUID();
     const claimed = transaction(() => {
       db.prepare('INSERT OR IGNORE INTO entries(cache_key) VALUES (?)').run(key);
       const row = entry(key);
-      if (row.next_at > now || row.lease_until > now) return false;
+      if (nextAttemptAt(row, minAttemptIntervalMs) > now || row.lease_until > now) return false;
       const cooldown = provider && db.prepare('SELECT until_at FROM cooldowns WHERE provider=?').get(provider)?.until_at;
       if (cooldown > now) {
         db.prepare('UPDATE entries SET next_at=?, error=? WHERE cache_key=?').run(cooldown, 'Provider cooldown; using last saved data', key);
@@ -79,7 +85,7 @@ export function createSqliteCache(path, { leaseMs = 120_000, historyBytes = 200_
       if (provider) db.prepare('INSERT INTO attempts(provider, at, cost) VALUES (?,?,?)').run(provider, now, cost);
       return true;
     });
-    if (!claimed) return read(key, ttl, { now });
+    if (!claimed) return read(key, ttl, { now, minAttemptIntervalMs });
 
     let data, failure;
     try {
@@ -109,7 +115,7 @@ export function createSqliteCache(path, { leaseMs = 120_000, historyBytes = 200_
       return true;
     });
     if (published) prune(finishedAt);
-    const result = read(key, ttl, { now: finishedAt });
+    const result = read(key, ttl, { now: finishedAt, minAttemptIntervalMs });
     return published ? { ...result, status: 'fresh' } : result;
   }
 
