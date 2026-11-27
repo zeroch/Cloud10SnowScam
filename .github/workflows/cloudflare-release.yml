@@ -1,0 +1,110 @@
+name: Release to Cloudflare
+run-name: Release ${{ inputs.version }} to Cloudflare
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Merged PR number (e.g. #42), release tag, or full main commit SHA'
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  select:
+    name: Resolve main build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      artifact_id: ${{ steps.pick.outputs.artifact_id }}
+      digest: ${{ steps.pick.outputs.digest }}
+    steps:
+      - name: Require dispatch from main
+        run: test "$GITHUB_REF" = refs/heads/main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: pick
+        name: Resolve commit and verify successful main CI
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 deploy/cloudflare-production/candidate.py
+
+  deploy:
+    name: Deploy ${{ needs.select.outputs.sha }}
+    needs: select
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://forecast.cloud10snow.com
+    concurrency:
+      group: cloud10-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+    env:
+      RELEASE_SHA: ${{ needs.select.outputs.sha }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.3'
+          package-manager-cache: false
+      - run: npm ci --prefix deploy/cloudflare-production --no-audit --no-fund
+      - name: Retrieve and verify the selected CI archive
+        env:
+          ARTIFACT_ID: ${{ needs.select.outputs.artifact_id }}
+          DIGEST: ${{ needs.select.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="$RUNNER_TEMP/cloud10.zip"
+          curl --fail --silent --show-error --location --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" --output "$archive"
+          printf '%s  %s\n' "$DIGEST" "$archive" | sha256sum --check --strict
+          mkdir -p dist/cloudflare-production
+          unzip -q "$archive" -d dist/cloudflare-production
+      - name: Configure the selected Worker
+        env:
+          D1_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
+        run: |
+          test -n "$D1_ID"
+          jq --arg db "$D1_ID" --arg sha "$RELEASE_SHA" --slurpfile runtime dist/cloudflare-production/runtime.json \
+            '.d1_databases[0].database_id = $db | .vars.RELEASE = $sha |
+             .compatibility_date = $runtime[0].compatibility_date | .compatibility_flags = $runtime[0].compatibility_flags' \
+            deploy/cloudflare-production/wrangler.example.jsonc > deploy/cloudflare-production/wrangler.jsonc
+      - name: Upload a version with no production traffic
+        id: upload
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          : "${CLOUDFLARE_ACCOUNT_ID:?Missing production account ID}" "${CLOUDFLARE_API_TOKEN:?Missing production token}"
+          export WRANGLER_OUTPUT_FILE_PATH="$RUNNER_TEMP/upload.jsonl"
+          deploy/cloudflare-production/node_modules/.bin/wrangler versions upload --no-bundle --keep-vars \
+            --config deploy/cloudflare-production/wrangler.jsonc --message "Git $RELEASE_SHA"
+          python3 deploy/cloudflare-production/uploaded-version.py "$WRANGLER_OUTPUT_FILE_PATH"
+      - name: Verify the version URL, assets and four live dashboards
+        env:
+          VERSION_URL: ${{ steps.upload.outputs.url }}
+        run: python3 deploy/cloudflare-production/verify-live.py "$VERSION_URL" dist/cloudflare-production/manifest.json "$RUNNER_TEMP/verification.json" "$RELEASE_SHA"
+      - name: Promote this verified version to 100% and record it
+        env:
+          VERSION_ID: ${{ steps.upload.outputs.id }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: bash deploy/cloudflare-production/promote.sh
+      - name: Check the public hostname after promotion
+        run: python3 deploy/cloudflare-production/verify-live.py https://forecast.cloud10snow.com dist/cloudflare-production/manifest.json "$RUNNER_TEMP/production.json" "$RELEASE_SHA"
