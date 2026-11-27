@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import UUID
 
@@ -184,8 +185,14 @@ def promote(api, run_id, sha, candidate, probe, final_check, *, automatic=False,
 
 
 def check_health(origin, expected_sha=None):
-    with urlopen(origin.rstrip('/') + '/api/health', timeout=10) as response:
-        health = json.load(response)
+    # Cloudflare's Worker edge rejects urllib's default client identity.
+    request = Request(origin.rstrip('/') + '/api/health', headers={'User-Agent': 'Cloud10-Release/1.0'})
+    try:
+        with urlopen(request, timeout=10) as response:
+            health = json.load(response)
+    except HTTPError as error:
+        error.close()
+        raise RuntimeError(f'{request.full_url} returned HTTP {error.code}.') from error
     if (health.get('ok') is not True or health.get('currentForecasts') != 4
             or health.get('storage') != 'Cloudflare D1'
             or (expected_sha and health.get('release') != expected_sha)):
