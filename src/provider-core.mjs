@@ -73,13 +73,9 @@ export function parseForecast(json) {
     const snow = field('snowfall'), temperature = field('temperature_2m'), precip = field('precipitation');
     const wind = field('wind_speed_10m'), gust = field('wind_gusts_10m');
     const cloud = json.hourly_units[`cloud_cover_${model.id}`] === '%' ? field('cloud_cover') : null;
-    const levelUnit = json.hourly_units[`freezing_level_height_${model.id}`];
-    const unitsPerFoot = levelUnit === 'ft' ? 1 : levelUnit === 'm' ? 0.3048 : null;
-    const freezing = unitsPerFoot === null ? null : field('freezing_level_height');
     const points = json.hourly.time.map((time, i) => ({
       time: finite(time) ? time * 1000 : null, snowIn: bounded(snow[i], 0, 20),
       temperatureF: bounded(temperature?.[i], -80, 130), precipIn: bounded(precip?.[i], 0, 8),
-      freezingLevelFt: finite(freezing?.[i]) ? bounded(freezing[i] / unitsPerFoot, 0, 30000) : null,
       windMph: bounded(wind?.[i], 0, 200), gustMph: bounded(gust?.[i], 0, 250), cloudPct: bounded(cloud?.[i], 0, 100),
     })).filter(p => finite(p.time));
     return { ...model, points };
@@ -122,7 +118,7 @@ export async function fetchText(url, fetchFn = fetch, now = Date.now()) {
 export function forecastRequestUrl(resort = RESORT) {
   // UTC calendar dates provide enough future hours for 15 Pacific dates,
   // including the hour-ending value at the last local midnight.
-  const params = new URLSearchParams({ latitude: resort.latitude, longitude: resort.longitude, elevation: resort.elevationM, hourly: 'snowfall,temperature_2m,precipitation,wind_speed_10m,wind_gusts_10m,cloud_cover,freezing_level_height', models: MODELS.map(m => m.id).join(','), forecast_days: '16', timeformat: 'unixtime', timezone: 'UTC', temperature_unit: 'fahrenheit', precipitation_unit: 'inch', wind_speed_unit: 'mph' });
+  const params = new URLSearchParams({ latitude: resort.latitude, longitude: resort.longitude, elevation: resort.elevationM, hourly: 'snowfall,temperature_2m,precipitation,wind_speed_10m,wind_gusts_10m,cloud_cover', models: MODELS.map(m => m.id).join(','), forecast_days: '16', timeformat: 'unixtime', timezone: 'UTC', temperature_unit: 'fahrenheit', precipitation_unit: 'inch', wind_speed_unit: 'mph' });
   return `https://api.open-meteo.com/v1/forecast?${params}`;
 }
 export function validateForecastCoverage(data, now) {

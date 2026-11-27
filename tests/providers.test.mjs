@@ -11,23 +11,6 @@ test('the provider requests enough data for 120 future hours at any UTC hour', (
   assert.equal(url.searchParams.get('timezone'), 'UTC');
   assert.equal(url.searchParams.get('elevation'), '1463.04');
   assert.ok(url.searchParams.get('hourly').split(',').includes('cloud_cover'));
-  assert.ok(url.searchParams.get('hourly').split(',').includes('freezing_level_height'));
-});
-
-test('freezing height accepts meters and feet per model and keeps unavailable heights distinct from sea level', async () => {
-  const data = JSON.parse(await fixture('forecast.json'));
-  const key = 'freezing_level_height_gfs_global';
-  const reading = () => providers.parseForecast(data).models.find(m => m.id === 'gfs_global').points.map(p => p.freezingLevelFt);
-  assert.equal(reading()[0], null);
-  data.hourly[key] = [1524, null];
-  data.hourly_units[key] = 'm';
-  assert.equal(reading()[0], 5000);
-  assert.equal(reading()[1], null);
-  data.hourly[key] = [5100, 0];
-  data.hourly_units[key] = 'ft';
-  assert.deepEqual(reading().slice(0, 2), [5100, 0]);
-  data.hourly_units[key] = 'undefined';
-  assert.equal(reading()[0], null);
 });
 
 test('forecast cloud cover is optional and invalid percentages are not shown', async () => {

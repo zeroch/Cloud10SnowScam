@@ -8,8 +8,6 @@ import { parseForecast } from '../src/provider-core.mjs';
 
 const halfHour = 1_800_000;
 const forecast = JSON.parse(readFileSync(new URL('./fixtures/forecast.json', import.meta.url)));
-forecast.hourly.freezing_level_height_gfs_global = [5100, 4900];
-forecast.hourly_units.freezing_level_height_gfs_global = 'ft';
 const firstHour = forecast.hourly.time[0] * 1000;
 const start = firstHour + 22 * 60_000;
 for (const [field, values] of Object.entries(forecast.hourly)) {
@@ -84,7 +82,6 @@ test('a compact night produces the same live advice and the complete 384-hour da
   const { bytes } = await db.prepare("SELECT length(json_extract(payload,'$.adviceDays')) AS bytes FROM pilot_latest WHERE source_key='stevenspass-forecast-v2'").first();
   assert.ok(bytes > 0);
   const expected = parseForecast(forecast).models;
-  assert.equal(expected.find(model => model.id === 'gfs_global').points[0].freezingLevelFt, 5100);
   for (const now of [start, start + 8 * halfHour, start + 2 * 86400000, start + 20 * 86400000]) {
     const data = await (await serve(request('/api/dashboard'), db, now)).json();
     assert.deepEqual(data.models, expected);
