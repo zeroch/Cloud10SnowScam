@@ -77,7 +77,7 @@ test('morning decision separates observed snowfall from station depth and escape
   assert.match(html, /NWAC · 4,800 ft/);
   assert.match(html, /snow depth/i);
   assert.match(html, /total snow on the ground at this station/i);
-  assert.match(html, /Past 24h snow accumulation<\/span>\s*<strong>3<span> in<\/span><\/strong><small>Observed/);
+  assert.match(html, /Past 24h snow accumulation<\/span>\s*<strong>2\.4<span> in<\/span><\/strong><small>Observed/);
   assert.match(html, /since the board was last cleared/i);
   assert.match(html, /report time unavailable/i); assert.match(html, /Chains advised/);
   assert.match(html, /id="nwac-station-link"[^>]*href="https:\/\/nwac\.us\/weather\/stations\/stevens-pass-brooks"/);

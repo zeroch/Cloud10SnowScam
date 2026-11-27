@@ -2,7 +2,11 @@ import { displayLanguage, t, modelCountLabel, convertWeather, depthNumber, depth
 import { RESORT, MORNING_RESORTS, getResort, snowLevelBands, stationUrl } from '/lib/config.mjs';
 import { HOUR, formatDate, formatTime, localParts, isPacificWeekend } from '/lib/time.mjs';
 import { finite, stationSummary, summarizeSnowLevel } from '/lib/conditions.mjs';
-import { METRICS, forecastRange, createSnowfallBlend, SNOW_BLEND, forecastPeriods, forecastBins, intervalTotal, tomorrowForecast, horizonForecast, fifteenDayForecast, hourlySnowForecast, personalSnowQuality, snowAmount, snowRange, comparisonSeries } from '/lib/forecast.mjs';
+import {
+  METRICS, forecastRange, createSnowfallBlend, SNOW_BLEND, forecastPeriods, forecastBins, intervalTotal,
+  tomorrowForecast, resortSnowfallForecast, horizonForecast, fifteenDayForecast, hourlySnowForecast,
+  personalSnowQuality, snowAmount, snowRange, comparisonSeries,
+} from '/lib/forecast.mjs';
 
 export const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const timestamp = value => finite(value) ? t('{0} {1} PT', formatDate(value), formatTime(value)) : t('Unavailable');
@@ -237,7 +241,7 @@ export function morningConditions(data) {
   const roadDetails = road ? `${road.condition ? `<p lang="en">${escape(road.condition)}</p>` : ''}${road.weather ? `<p><b>${t('Weather:')}</b> <span lang="en">${escape(road.weather)}</span></p>` : ''}${(road.directions || []).map(item => `<p><b>${escape(t(item.direction))}:</b> <span lang="en">${escape(item.message)}</span></p>`).join('')}` : `<p>${t('No corridor report is available.')}</p>`;
   const fetchedAt = source('wsdot')?.fetchedAt;
   return `<article class="mountain-panel mountain-conditions" aria-labelledby="morning-heading"><div class="mountain-panel-heading"><div><p class="mountain-eyebrow">${t('BEFORE YOU GO')}</p><h2 id="morning-heading">${t('Mountain &amp; road conditions')}</h2></div><span class="mountain-heading-tag">${t('Observations')}</span></div><div class="mountain-condition-grid"><section class="mountain-observation"><div class="mountain-condition-title"><span class="mountain-condition-icon" aria-hidden="true">✳</span><div><h3>${t('Nearby station · {0}', escape(station.name))}</h3><p>${t('NWAC · {0} ft', station.elevationFt.toLocaleString('en-US'))}</p></div></div><div class="mountain-readings">
-      <div class="mountain-reading-snowfall"><span>${t('Past 24h snow accumulation')}</span>${reading(station.snowfall24h, 'in', { format: snowAmount, unavailable: t('No snow-board reading') })}</div>
+      <div class="mountain-reading-snowfall"><span>${t('Past 24h snow accumulation')}</span>${reading(station.snowfall24h, 'in', { format: depthNumber, unavailable: t('No snow-board reading') })}</div>
       <div><span>${t('Snow depth')}</span>${reading(station.depth, 'in')}</div>
       <div><span>${t('Air temperature')}</span>${reading(station.temperature, '°F')}</div>
     </div>
@@ -328,13 +332,19 @@ function forecastGuide(data, state, night) {
   const levelStart = night.condition.history ? night.nightStart : night.start;
   const bands = snowLevelBands(data.resort);
   const dry = bands.dry.toLocaleString('en-US'), wet = bands.wet.toLocaleString('en-US');
+  const conditionRule = night.opening
+    ? t('Opening snow quality uses the last forecast interval before {0}. Snow levels at {1} indicate dry snow at or below {2} ft, wet snow at or above {3} ft, and normal snow in between.', formatTime(night.end), pointCaption(data), dry, wet)
+    : t('personal snow-level bands for {0} at {1}. Dry: at/below {2} ft; Normal: above {3} and below {4} ft; Wet: at/above {5} ft. The bands use the same elevation gaps as your original rule: 2,800 ft and 800 ft below the forecast point, rounded to 100 ft. The selected state describes the last forecast interval before 6 am, with earlier changes retained. These are snow-level-based estimates, not measured snow density or the condition of the entire ski surface. Temperature and snow-to-liquid ratio can change actual snow texture.', escape(resortFor(data).name), pointCaption(data), dry, dry, wet, wet);
+  const timingRule = night.opening
+    ? t('The {0} target applies to the full evening-to-opening window. The forecast uses a proportional estimate for the time left in the current hour.', overnightTarget())
+    : t('The {0} target applies to the full 6 pm–6 am night. During the night, only full future forecast hours are included; the hour in progress is excluded. Already-fallen snow is unconfirmed.', overnightTarget());
   return `<details id="tomorrow-method" class="live-data-details live-preserve-details cloud-night-details"><summary id="tomorrow-method-button">${t('How to read this forecast')}</summary>
   <p>${t('{0} We add up the hourly forecasts and round the final total up to a whole {1}.', snowBlendMethod(), depthUnitName(1))}</p>
   <p><strong>${t('Model agreement:')}</strong> ${t('High means the highest-to-lowest spread is at most 40% of the median; {0} is at most 100%; Low is wider. Identical zero totals are High. Fewer than three complete models cannot support a tier. This describes model spread, not the probability of snow or forecast accuracy.', state.horizon ? t('Medium') : t('Moderate'))}</p>
-  <p><strong>${t('Estimated condition:')}</strong> ${t('personal snow-level bands for {0} at {1}. Dry: at/below {2} ft; Normal: above {3} and below {4} ft; Wet: at/above {5} ft. The bands use the same elevation gaps as your original rule: 2,800 ft and 800 ft below the forecast point, rounded to 100 ft. The selected state describes the last forecast interval before 6 am, with earlier changes retained. These are snow-level-based estimates, not measured snow density or the condition of the entire ski surface. Temperature and snow-to-liquid ratio can change actual snow texture.', escape(resortFor(data).name), pointCaption(data), dry, dry, wet, wet)}</p>
+  <p><strong>${t('Estimated condition:')}</strong> ${conditionRule}</p>
   ${state.horizon || state.qualityGuide ? `<p><strong>${t('Your quality colors:')}</strong> ${t('Orange: at least {0} with a Dry morning and complete guidance showing no earlier Wet interval. Blue: at least {1} with Dry/Normal snow. Gray: less than {1} or no new snow. Purple: Wet snow at any amount. Green: a majority of available models and at least three complete forecasts show warm liquid precipitation, with no model predicting snow. Gray also indicates missing or stale guidance. Ratings reflect personal new-snow preferences and use unrounded thresholds.', depthThreshold(5), depthThreshold(1))}</p><p><strong>${t('Compact agreement:')}</strong> ${t('agree = High; vary = Medium; split = Low. These labels describe snowfall totals, including zero-snow forecasts, not agreement about rain.')}</p>` : ''}
   <p>${t('The overnight blend uses all available models. The Daily Forecast filter applies to that table’s blend.')}</p>
-  <p>${t('The {0} target applies to the full 6 pm–6 am night. During the night, only full future forecast hours are included; the hour in progress is excluded. Already-fallen snow is unconfirmed.', overnightTarget())}</p>
+  <p>${timingRule}</p>
   <p>${t('A model range is not a probability. Snow level alone does not establish dry powder or current base conditions.')}</p>
   <p>${t('Target counts use unrounded totals from models that cover the entire night. Missing models are excluded and their coverage is shown separately. Counts are not probabilities. A {0} proximity cue flags estimates near your target; it is not a measured forecast error or confidence score.', depthThreshold(0.5, true))}</p>
   <p>${t('The main uncertainty considers data gaps, forecast precipitation overlapping the NWS {0} ft snow-level reference, model disagreement, proximity to the target, and timing. NWS snow level does not change the model snowfall amounts.', wet)}</p>
@@ -462,15 +472,64 @@ export function precipitation(data, state) {
   <p class="live-caption">${t('{0}Missing hours stay unavailable; short-range models end at their available horizon. Liquid precipitation includes rain and snow.', totals?'':t('* Partial edge interval. Periods use the Pacific clock, including daylight-saving changes. '))}</p>`;
 }
 
+function snowfallWindow(start, end) {
+  const date = formatDate(end);
+  return formatDate(start) === date
+    ? t('{0}–{1} · {2} PT', formatTime(start), formatTime(end), date)
+    : t('{0} → {1}', timestamp(start), timestamp(end));
+}
+
+function resortSnowfallMetric(title, value, period, status) {
+  return `<div class="resort-snowfall-metric">
+    <h3>${title}</h3>
+    ${value === null ? `<p class="resort-snowfall-status">${status}</p>`
+      : `<p class="resort-snowfall-value"><strong>${escape(value)}</strong> <span>${weatherUnit('in')}</span></p>`}
+    ${period ? `<p class="resort-snowfall-period">${escape(period)}</p>` : ''}
+    ${value !== null && status ? `<p class="resort-snowfall-status">${status}</p>` : ''}
+  </div>`;
+}
+
+function resortSnowfallCard(data, state) {
+  const { now } = state;
+  const { daytime, remaining, opening } = resortSnowfallForecast(data, now);
+  const station = MORNING_RESORTS[resortFor(data).id].station;
+  const reported = data.morning?.station;
+  const reading = reported?.stid === station.stid ? reported.snowfall24h : null;
+  const observed = reading?.state === 'fresh' && finite(reading.value) && reading.value >= 0 &&
+    finite(reading.observedAt) && reading.observedAt <= now;
+  const report = resortSnowfallMetric(t('Already accumulated'), observed ? depthNumber(reading.value) : null,
+    observed ? t('Past 24h report · as of {0}', timestamp(reading.observedAt)) : '',
+    observed ? '' : t('No recent snowfall report'));
+  const { blendedIn } = remaining.estimate;
+  const { min, max, count } = remaining.snow;
+  const showRange = count >= 2 && blendedIn >= min && blendedIn <= max;
+  const forecastAmount = blendedIn === null ? null : showRange ? snowRange(remaining.snow, false) : snowAmount(blendedIn);
+  const forecastStatus = blendedIn === null ? t('Forecast unavailable')
+    : remaining.forecastState === 'stale' ? t('Saved forecast · update overdue') : '';
+  const forecast = resortSnowfallMetric(t('Still expected to fall'), forecastAmount,
+    snowfallWindow(remaining.start, remaining.end), forecastStatus);
+  const observationSource = observed ? `<p class="live-caption">${t('NWAC · {0}', escape(station.name))} · ${escape(timestamp(reading.observedAt))}. ${t('NWAC’s 24-hour board measures snow since the board was last cleared.')}</p>` : '';
+  return `<article class="cloud-tomorrow" id="live-overnight" aria-labelledby="night-headline">
+    ${mountainHeading(data)}
+    <div class="forecast-section-heading"><h2 id="tomorrow-snow-label">${t('Today')}</h2><p>${formatDate(now)}</p></div>
+    <section class="forecast-summary-card resort-snowfall-card" aria-labelledby="tomorrow-snow-label">
+      ${daytime ? report + forecast : forecast + report}
+    </section>
+    <details id="tomorrow-details" class="tomorrow-details live-preserve-details"><summary id="tomorrow-details-button">${forecastIcon('list')}<span>${t('Details')}</span>${forecastIcon('chevron')}</summary><div class="tomorrow-details-body">
+      ${observationSource}${overnightEvidence(data, opening)}${forecastGuide(data, { ...state, horizon: null, qualityGuide: true }, opening)}
+    </div></details>
+    ${qualityGuide('tomorrow-quality-guide')}
+  </article>`;
+}
+
 export function outlook(data, state) {
-  const todayOnly = state.page === 'stevens';
-  const detailState = todayOnly ? { ...state, horizon: null, nightChoice: 'tonight' } : state;
-  const n = tomorrowForecast(data, state.now, detailState.nightChoice);
+  if (state.page === 'stevens') return resortSnowfallCard(data, state);
+  const n = tomorrowForecast(data, state.now, state.nightChoice);
   const morning = n.phase === 'morning', remaining = n.phase === 'remaining', ending = n.phase === 'ending';
   const dateKey = time => { const p = localParts(time); return `${p.year}-${p.month}-${p.day}`; };
   const day = morning ? t('Last night') : dateKey(n.end) === dateKey(state.now) ? t('This morning')
     : dateKey(n.end) === dateKey(state.now + 24 * HOUR) ? t('Tomorrow') : t('Overnight');
-  const displayDate = todayOnly ? formatDate(state.now) : `${day} · ${formatDate(n.end)}`;
+  const displayDate = `${day} · ${formatDate(n.end)}`;
   const numeric = n.estimate.blendedIn !== null;
   const time = value => formatTime(value, { minute: undefined }).toLowerCase();
   const window = morning ? t('6 pm–6 am PT · ended') : ending ? t('Final hour in progress')
@@ -479,15 +538,15 @@ export function outlook(data, state) {
     : n.forecastState === 'unavailable' ? t('Forecast unavailable')
     : remaining ? t('Already fallen: unconfirmed') : ending ? t('Remaining amount unconfirmed')
     : !morning && n.coverage !== 'full' ? t('{0} of {1} models cover the full period', n.snow.count, n.expectedModels) : '';
-  const choice = !todayOnly && n.morning ? `<div class="cloud-night-choice" role="group" aria-label="${t('Night to review')}"><button id="night-last" data-night-choice="${n.lastNightDate}" aria-pressed="${morning && n.nightDate === n.lastNightDate}">${t('Last night')}</button><button id="night-next" data-night-choice="tonight" aria-pressed="${!morning}">${t('Tonight’s forecast')}</button></div>` : '';
+  const choice = n.morning ? `<div class="cloud-night-choice" role="group" aria-label="${t('Night to review')}"><button id="night-last" data-night-choice="${n.lastNightDate}" aria-pressed="${morning && n.nightDate === n.lastNightDate}">${t('Last night')}</button><button id="night-next" data-night-choice="tonight" aria-pressed="${!morning}">${t('Tonight’s forecast')}</button></div>` : '';
   const quality = personalSnowQuality(data, n);
   const condition = quality.key === 'rain' ? t('Rain') : n.condition.label;
   const summaryRange = !morning && n.forecastState === 'current' && n.snow.count >= 2 ? t('Model range: {0}', snowRange(n.snow)) : '';
   const collection = !morning && n.source?.fetchedAt ? t('{0} collected {1}', n.forecastState === 'stale' ? t('Saved forecast') : t('Forecast'), timestamp(n.source.fetchedAt)) : '';
   return `<article class="cloud-tomorrow" id="live-overnight" aria-labelledby="night-headline" data-night-phase="${n.phase}" data-forecast-state="${n.forecastState}">
-  ${mountainHeading(data)}${todayOnly ? '' : forecastNavigation()}
+  ${mountainHeading(data)}${forecastNavigation()}
   ${choice}${notice ? `<p class="tomorrow-notice" role="status">${escape(notice)}</p>` : ''}
-  <div class="forecast-section-heading"><h2 id="tomorrow-snow-label">${todayOnly ? t('Today') : t('Snow Summary')}</h2><p>${displayDate}</p></div>
+  <div class="forecast-section-heading"><h2 id="tomorrow-snow-label">${t('Snow Summary')}</h2><p>${displayDate}</p></div>
   <section class="forecast-summary-card forecast-tomorrow-card ${numeric ? '' : 'forecast-summary-word'}" data-snow-quality="${quality.key || 'unknown'}" aria-labelledby="tomorrow-snow-label">
     <div class="forecast-feature"><h3>${remaining ? t('Left to fall') : morning ? t('Actual snowfall') : t('By 6 am')}</h3>
       <p class="tomorrow-amount ${numeric ? n.estimate.value.length > 1 ? 'tomorrow-amount-wide' : '' : 'tomorrow-amount-word'}" data-snowfall-value="${escape(n.estimate.value)}" aria-label="${n.estimate.approximate ? t('Approximately ') : ''}${escape(n.estimate.value)}${numeric ? ' ' + depthUnitName(n.estimate.value) : ''}"><strong>${escape(n.estimate.value)}</strong>${numeric ? `<span class="forecast-amount-unit" aria-hidden="true">${weatherUnit('in')}</span>` : ''}</p>
@@ -502,7 +561,7 @@ export function outlook(data, state) {
     <div class="forecast-summary-evidence"><p class="tomorrow-window">${escape(window)}${numeric ? t(' · {0}', depthUnitName()) : ''}</p>${summaryRange ? `<p>${escape(summaryRange)}</p>` : ''}${collection ? `<p>${escape(collection)}</p>` : ''}</div>
   </section>
   ${morning ? reportLink(data, 'tomorrow-report') : ''}
-  <details id="tomorrow-details" class="tomorrow-details live-preserve-details"><summary id="tomorrow-details-button">${forecastIcon('list')}<span>${t('Details')}</span>${forecastIcon('chevron')}</summary><div class="tomorrow-details-body">${overnightEvidence(data, n)}${forecastGuide(data, { ...detailState, qualityGuide: true }, n)}</div></details>
+  <details id="tomorrow-details" class="tomorrow-details live-preserve-details"><summary id="tomorrow-details-button">${forecastIcon('list')}<span>${t('Details')}</span>${forecastIcon('chevron')}</summary><div class="tomorrow-details-body">${overnightEvidence(data, n)}${forecastGuide(data, { ...state, qualityGuide: true }, n)}</div></details>
   ${qualityGuide('tomorrow-quality-guide')}
   </article>`;
 }
@@ -510,28 +569,43 @@ export function outlook(data, state) {
 function overnightEvidence(data, n) {
   const morning = n.phase === 'morning', ending = n.phase === 'ending';
   const shortTime = value => formatTime(value, { minute: undefined }).toLowerCase();
-  const date = `${formatDate(n.nightStart)} → ${formatDate(n.end)}`;
-  const period = n.phase === 'remaining' ? t('{0}–6 am remaining · Pacific', shortTime(n.start)) : t('6 pm–6 am · Pacific');
-  const checked = n.source?.fetchedAt ? t('checked {0}', n.forecastState === 'current' ? formatTime(n.source.fetchedAt).toLowerCase() + t(' PT') : timestamp(n.source.fetchedAt)) : t('no successful collection');
-  const target = n.phase === 'remaining' ? t('Already fallen: unconfirmed · full-night total unknown')
+  const date = n.opening ? t('Opening forecast') : `${formatDate(n.nightStart)} → ${formatDate(n.end)}`;
+  const period = n.opening ? snowfallWindow(n.start, n.end)
+    : n.phase === 'remaining' ? t('{0}–6 am remaining · Pacific', shortTime(n.start)) : t('6 pm–6 am · Pacific');
+  const checked = n.source?.fetchedAt ? t('checked {0}', n.forecastState === 'current' && !n.opening ? formatTime(n.source.fetchedAt).toLowerCase() + t(' PT') : timestamp(n.source.fetchedAt)) : t('no successful collection');
+  const target = n.phase === 'remaining' ? (n.opening ? '' : t('Already fallen: unconfirmed · full-night total unknown'))
     : morning ? t('Check a station report for actual snowfall')
     : ending ? t('The feed cannot resolve only the remaining part of this hour')
     : n.forecastState === 'stale' ? t('Saved model estimates · full-night target {0}', overnightTarget()) : t('Your overnight target: {0}', overnightTarget());
+  const supportPrefix = n.support && n.support.available < n.support.expected ? t('{0} of {1} available models · ', n.support.available, n.support.expected) : '';
+  const supportNote = n.opening ? t('{0}Through {1} · model counts', supportPrefix, formatTime(n.end))
+    : t('{0}Full night to 6 am · counts, not probabilities', supportPrefix);
+  const quality = n.opening ? personalSnowQuality(data, n) : null;
+  const openingFacts = quality ? `<div><dt>${quality.key === 'rain' ? t('Forecast precipitation') : t('Estimated morning condition')}</dt>
+    <dd>${escape(quality.key === 'rain' ? t('Rain') : n.condition.label)}
+      ${n.condition.transition ? `<small>${escape(n.condition.transition)}</small>` : ''}
+      <small>${t('Personal snow rating: {0}', escape(quality.label))}</small>
+    </dd></div>
+    <div><dt>${t('Model agreement')}</dt><dd>${compactAgreement(n)}</dd></div>` : '';
+  const rangeLabel = n.opening ? t('range of complete forecasts') : n.forecastState === 'stale' ? t('saved model range') : t('model range');
   return `<article class="cloud-night" id="night-evidence" aria-labelledby="night-evidence-heading">
   <div class="cloud-night-top">
     <div class="cloud-night-window"><img src="/clone/icons/moon.svg" width="28" height="28" alt=""><div><strong>${date}</strong><span>${period}</span></div></div>
     <h2 id="night-evidence-heading">${escape(n.headline)}</h2>
-    <div class="cloud-night-amount ${n.amount.length > 16 ? 'cloud-amount-word' : ''}"><strong>${escape(n.amount)}</strong>${!morning && n.amount !== t('Unavailable') ? `<span>${n.forecastState === 'stale' ? t('saved model range') : t('model range')}</span>` : ''}</div>
-    ${n.support ? `<div class="cloud-target-support" role="group" aria-label="${t('Models reaching your full-night snowfall target')}">${[[4,n.support.four],[5,n.support.five]].map(([threshold,count]) => `<div data-target-inches="${threshold}"><span>${t('At least {0}', depthThreshold(threshold, true))}</span><strong>${t('{0} of {1}', count, n.support.available)} <small>${t('models')}</small></strong></div>`).join('')}</div><p class="cloud-support-note">${t('{0}Full night to 6 am · counts, not probabilities', n.support.available < n.support.expected ? t('{0} of {1} available models · ', n.support.available, n.support.expected) : '')}</p>` : `<p class="cloud-night-target">${target}</p>`}
+    <div class="cloud-night-amount ${n.amount.length > 16 ? 'cloud-amount-word' : ''}"><strong>${escape(n.amount)}</strong>${!morning && n.amount !== t('Unavailable') ? `<span>${rangeLabel}</span>` : ''}</div>
+    ${n.opening && n.estimate.blendedIn !== null ? `<p class="cloud-range-note">${escape(t('{0} · {1}', t('{0} {1}', n.estimate.value, weatherUnit('in')), n.estimate.label))}</p>` : ''}
+    ${n.support ? `<div class="cloud-target-support" role="group" aria-label="${t('Models reaching your full-night snowfall target')}">${[[4,n.support.four],[5,n.support.five]].map(([threshold,count]) => `<div data-target-inches="${threshold}"><span>${t('At least {0}', depthThreshold(threshold, true))}</span><strong>${t('{0} of {1}', count, n.support.available)} <small>${t('models')}</small></strong></div>`).join('')}</div><p class="cloud-support-note">${supportNote}</p>` : target ? `<p class="cloud-night-target">${target}</p>` : ''}
     ${!morning ? `<p class="cloud-night-uncertainty" data-uncertainty="${n.uncertainty.kind}"><strong>${t('What to watch')}</strong> ${escape(n.uncertainty.text)}</p>` : ''}
   </div>
   <div class="cloud-night-evidence">
   ${!morning && !ending ? `<div class="cloud-night-table-scroll" tabindex="0" role="region" aria-label="${t('Overnight model comparison, scroll horizontally if needed')}"><table class="cloud-night-models"><caption class="cloud-sr-only">${t('Overnight snowfall by model. {0}.', escape(n.coverageText))}</caption><thead><tr><th scope="col">${t('Model')}</th><th scope="col">${t('Snowfall')}</th><th scope="col">${n.phase === 'remaining' ? t('Coverage') : n.forecastState === 'current' ? t('Target') : t('Status')}</th></tr></thead><tbody>${n.rows.map(m => `<tr data-night-model="${m.id}"><th scope="row"><i aria-hidden="true" style="background:${m.color}"></i>${escape(m.label)}</th><td>${m.complete && n.forecastState !== 'unavailable' ? escape(t('{0} {1}', snowAmount(m.total), weatherUnit('in'))) : '—'}</td><td class="cloud-target-${m.targetState}">${escape(n.forecastState === 'unavailable' ? t('Unavailable') : m.target)}</td></tr>`).join('')}</tbody></table></div>` : ''}
-  <dl class="cloud-night-facts"><div><dt>${t('Timing')}</dt><dd>${escape(n.timing)}</dd></div>${!morning && !ending ? `<div><dt>${t('Snow level · NWS')}</dt><dd>${escape(n.level.value)}<small class="${n.level.state === 'current' ? '' : 'cloud-caution'}">${escape(n.level.note)}</small>${n.level.coverage === 'partial' ? `<button class="cloud-inline-link" data-night-details>${t('See available times')}</button>` : ''}</dd></div>` : ''}</dl>
+  <dl class="cloud-night-facts"><div><dt>${t('Timing')}</dt><dd>${escape(n.timing)}</dd></div>${!morning && !ending ? `<div><dt>${t('Snow level · NWS')}</dt><dd>${escape(n.level.value)}<small class="${n.level.state === 'current' ? '' : 'cloud-caution'}">${escape(n.level.note)}</small>${n.level.coverage === 'partial' ? `<button class="cloud-inline-link" data-night-details>${t('See available times')}</button>` : ''}</dd></div>` : ''}
+    ${openingFacts}
+  </dl>
   </div>
   <div class="cloud-night-footer">
     ${morning ? '' : `<p class="cloud-night-source ${n.forecastState === 'current' && n.coverage === 'full' ? '' : 'cloud-caution'}">${ending ? t('Forecast collection {0}', n.forecastState === 'stale' ? t('overdue') : t(n.forecastState)) : n.coverageText} · ${checked}</p>`}
-    <p class="cloud-observation-note" id="live-observations">${t('Actual snowfall unconfirmed{0}', data.observationsEnabled === false ? t(' · NWAC off') : t(' · forecast view'))}</p>
+    ${n.opening ? '' : `<p class="cloud-observation-note" id="live-observations">${t('Actual snowfall unconfirmed{0}', data.observationsEnabled === false ? t(' · NWAC off') : t(' · forecast view'))}</p>`}
     ${!morning && !ending && n.snow.count && n.forecastState !== 'unavailable' ? `<p class="cloud-range-note">${t('Range of model forecasts; actual snowfall can differ.')}</p>` : ''}
     ${morning ? reportLink(data, 'cloud-primary') : ''}
     <span class="cloud-sr-only">${t('All available models.')}</span>

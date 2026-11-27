@@ -7,6 +7,7 @@ import { formatDate, formatTime, isPacificWeekend } from '../src/time.mjs';
 import { buildResortComparison } from '../src/resort-comparison.mjs';
 import { MORNING_RESORTS, RESORTS } from '../src/config.mjs';
 import { COMPARISON_NOW, resortComparisonFixture } from './fixtures/resort-comparison.mjs';
+import { overnightFixture } from './fixtures/overnight.mjs';
 
 async function browserView(name) {
   const file = new URL('../public/clone/' + name + '.mjs', import.meta.url);
@@ -61,6 +62,20 @@ test('Chinese station readings use the selected units and preserve zero and unav
   assert.match(render(), /<strong>-10<span> °C<\/span>/);
   station.temperature = null;
   assert.match(render(), /气温<\/span><strong>暂无数据<\/strong>/);
+});
+
+test('Chinese resort Today gives the report and remaining forecast separate labels and windows', ctx => {
+  ctx.after(() => { setDisplayLanguage('en'); setDisplayUnits({}); });
+  setDisplayLanguage('zh-CN', chinese);
+  setDisplayUnits({ depth: 'cm' });
+  const now = Date.parse('2026-10-16T13:00Z');
+  const data = overnightFixture({ now, totals: [0, 0, 0, 0, 0] });
+  data.morning = { station: { ...MORNING_RESORTS.stevenspass.station, snowfall24h: { value: 4, observedAt: now, state: 'fresh' } } };
+  const html = view.summary(data, { now, page: 'stevens' });
+  assert.match(html, /预计还将降雪[\s\S]*?厘米[\s\S]*?0?6:00–0?8:00/);
+  assert.match(html, /已累计降雪[\s\S]*?10\.16[\s\S]*?厘米[\s\S]*?24 小时报告/);
+  assert.match(view.morningConditions(data), /过去24小时降雪量<\/span>\s*<strong>10\.16<span> 厘米<\/span>/);
+  assert.match(html.split('<details id="tomorrow-details"')[1], /雪场开放前降雪预报[\s\S]*?0?8:00/);
 });
 
 test('explicit and saved language choices take precedence over browser preferences', () => {

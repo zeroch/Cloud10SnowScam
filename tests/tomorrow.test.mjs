@@ -8,6 +8,41 @@ function tomorrow(data = overnightFixture(), now = EXAMPLE_NOW, choice = 'auto')
   return forecast.tomorrowForecast(data, now, choice);
 }
 
+test('resort snowfall switches its forecast cutoff at 8 AM and 4 PM Pacific', () => {
+  assert.equal(typeof forecast.resortSnowfallForecast, 'function');
+  for (const [viewed, daytime, remainingEnd, openingStart, openingEnd] of [
+    ['2026-10-16T14:59Z', false, '2026-10-16T15:00Z', '2026-10-16T14:59Z', '2026-10-16T15:00Z'],
+    ['2026-10-16T15:00Z', true, '2026-10-16T23:00Z', '2026-10-16T23:00Z', '2026-10-17T15:00Z'],
+    ['2026-10-16T22:59Z', true, '2026-10-16T23:00Z', '2026-10-16T23:00Z', '2026-10-17T15:00Z'],
+    ['2026-10-16T23:00Z', false, '2026-10-17T15:00Z', '2026-10-16T23:00Z', '2026-10-17T15:00Z'],
+    ['2026-03-08T00:00Z', false, '2026-03-08T15:00Z', '2026-03-08T00:00Z', '2026-03-08T15:00Z'],
+    ['2026-10-31T23:00Z', false, '2026-11-01T16:00Z', '2026-10-31T23:00Z', '2026-11-01T16:00Z'],
+  ]) {
+    const now = Date.parse(viewed);
+    const result = forecast.resortSnowfallForecast(overnightFixture({ now }), now);
+    assert.equal(result.daytime, daytime, viewed);
+    assert.equal(result.remaining.start, now, viewed);
+    assert.equal(result.remaining.end, Date.parse(remainingEnd), viewed);
+    assert.equal(result.opening.start, Date.parse(openingStart), viewed);
+    assert.equal(result.opening.end, Date.parse(openingEnd), viewed);
+  }
+});
+
+test('opening totals include both 6–8 AM hours and estimate only the remaining part of the final hour', () => {
+  assert.equal(typeof forecast.resortSnowfallForecast, 'function');
+  const snowByHour = { 13: 12, 14: 3, 15: 2, 16: 10 };
+  for (const [viewed, expected] of [['2026-10-16T13:00Z', 5], ['2026-10-16T14:30Z', 1]]) {
+    const now = Date.parse(viewed);
+    const data = overnightFixture({ now });
+    data.models = data.models.slice(0, 1);
+    for (const point of data.models[0].points) point.snowIn = snowByHour[new Date(point.time).getUTCHours()] ?? 0;
+    const { opening } = forecast.resortSnowfallForecast(data, now);
+    assert.equal(opening.estimate.blendedIn, expected);
+    assert.equal(opening.snow.min, expected);
+    assert.equal(opening.snow.max, expected);
+  }
+});
+
 test('Tomorrow reports the hourly blend alongside the complete-model evidence', () => {
   const result = tomorrow();
   assert.equal(result.estimate.blendedIn, 4.86);

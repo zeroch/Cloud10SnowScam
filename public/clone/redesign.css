@@ -63,3 +63,44 @@ body[data-live] #pageContent.cloud-page>.cloud-evidence-nav{position:sticky;top:
   .cloud-tomorrow .forecast-tomorrow-card .tomorrow-amount-wide strong{font-size:44px}
   .cloud-tomorrow .forecast-tomorrow-card .tomorrow-amount-wide[data-snowfall-value^="<"] strong{font-size:36px}
 }
+
+.cloud-tomorrow .resort-snowfall-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.resort-snowfall-metric + .resort-snowfall-metric {
+  border-inline-start: 1px solid var(--club-rule);
+  padding-inline-start: 20px;
+}
+.resort-snowfall-metric h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.resort-snowfall-value {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.15;
+}
+.resort-snowfall-metric:first-child .resort-snowfall-value {
+  font-size: clamp(36px, 5vw, 54px);
+}
+.resort-snowfall-value span, .resort-snowfall-period, .resort-snowfall-status {
+  color: var(--club-secondary);
+}
+.resort-snowfall-value span { font-size: 15px; font-weight: 600; }
+.resort-snowfall-period, .resort-snowfall-status {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.resort-snowfall-status { font-weight: 600; }
+@media(max-width: 479px) {
+  .cloud-tomorrow .resort-snowfall-card { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .resort-snowfall-metric + .resort-snowfall-metric {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--club-rule);
+    padding: 14px 0 0;
+  }
+}
