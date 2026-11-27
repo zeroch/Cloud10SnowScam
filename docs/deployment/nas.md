@@ -2,6 +2,12 @@
 
 The NAS edition uses Docker Compose and stores forecasts in a named SQLite volume. The image build runs the application tests before assembling the runtime image.
 
+## Release inputs
+
+Run the NAS packager and the hosted-site sync from a Git checkout. Both use current working-tree contents of tracked files. Stage new inputs with `git add` to include them.
+
+The site sync records the public assets it writes in the source checkout’s `.cache/` directory. It removes unchanged copies when their sources leave the index. On first use or after cache loss, it checks existing public files against the source and site indexes. If it reports an unfamiliar file, move it out of the public directory or track it in the site repository if you intend to publish it.
+
 ## Install
 
 1. From the repository root, run `npm run package:nas`. Upload the ZIP from `dist/` and extract it into a dedicated folder on the NAS.
