@@ -179,8 +179,7 @@ function render(trigger = null) {
   layoutContext();
   const restore = () => {
     if (version !== renderVersion) return;
-    let element = focus && document.getElementById(focus);
-    if (element?.disabled && element.closest('.hourly-nav')) element = $('.hourly-days [aria-pressed="true"]');
+    const element = focus && document.getElementById(focus);
     if (element) {
       element.focus({preventScroll:true});
       if (sectionAnchor) window.scrollBy(0,sectionAnchor.getBoundingClientRect().top-sectionTop);
@@ -250,8 +249,8 @@ export function startLive() {
       history.pushState(null, '', url); render(button); requestAnimationFrame(() => openSection('live-overnight'));
     }
     else if (button.dataset.horizonNight) selectHorizonNight(button.dataset.horizonNight);
-    else if (button.hasAttribute('data-hourly-start')) {
-      state.hourlyStart = Number(button.dataset.hourlyStart);
+    else if (button.hasAttribute('data-hourly-page')) {
+      state.hourlyPage = Number(button.dataset.hourlyPage);
       render(button);
     }
     else if (button.hasAttribute('data-night-details')) {

@@ -4,103 +4,89 @@ import { hourlySnowForecast } from '../src/forecast.mjs';
 import { HOUR } from '../src/time.mjs';
 
 const sixAm = Date.parse('2026-11-27T14:00:00Z');
-const newSnow = [0.07, 0.09, 0.13, 0.19, 0.26, 0.32, 0.38, 0.46, 0.56, 0.61, 0.68, 0.57];
-function snapshot(start = sixAm, count = 12) {
+const snow = [0.07, 0.09, 0.13, 0.19, 0.26, 0.32, 0.38, 0.46, 0.56, 0.61, 0.68, 0.57];
+function snapshot(start = sixAm, count = 36) {
   const points = Array.from({ length: count + 1 }, (_, i) => ({
-    time: start + i * HOUR, snowIn: i ? newSnow[(i - 1) % 12] : 9,
-    precipIn: i * 0.01, temperatureF: -4 + i,
+    time: start + i * HOUR, snowIn: i ? snow[(i - 1) % 12] : 9,
+    precipIn: .01, temperatureF: 29, freezingLevelFt: 4500 - i * 10,
   }));
   return {
+    resort: { id: 'stevenspass', elevationFt: 4800 },
     models: [{ id: 'ecmwf_ifs025', points }],
-    sources: [{ id: 'forecast', status: 'cached', fetchedAt: start }, { id: 'nws', status: 'cached' }],
-    snowLevels: [{ start, end: start + HOUR, feet: 4500 }, { start: start + HOUR, end: start + 12 * HOUR, feet: 4400 }],
+    sources: [{ id: 'forecast', status: 'cached', fetchedAt: start }],
+    snowLevels: [{ start, end: start + count * HOUR, feet: 5100 }],
   };
 }
 
-test('hour headings cover the following hour of snow and liquid, with temperature and NWS level at the heading time', () => {
-  const result = hourlySnowForecast(snapshot(), sixAm);
-  assert.equal(result.hours.length, 12);
-  assert.deepEqual(result.hours.map(hour => hour.snowIn), newSnow);
-  assert.deepEqual(result.hours.map(hour => hour.totalIn), [0.07, 0.16, 0.29, 0.48, 0.74, 1.06, 1.44, 1.90, 2.46, 3.07, 3.75, 4.32]);
-  assert.equal(result.hours[0].start, sixAm);
-  assert.equal(result.hours[0].precipIn, 0.01);
-  assert.equal(result.hours[0].temperatureF, -4);
-  assert.equal(result.hours[0].snowLevelFt, 4500);
-  assert.equal(result.hours[1].snowLevelFt, 4400);
-  assert.equal(result.totalIn, 4.32);
+test('only the next 36 full hourly intervals are exposed, even with 15 days of guidance', () => {
+  const now = sixAm - 37 * 60_000;
+  const result = hourlySnowForecast(snapshot(sixAm, 360), now);
+  assert.deepEqual(result.hours.map(h => h.start), Array.from({ length: 36 }, (_, i) => sixAm + i * HOUR));
+  assert.deepEqual(result.hours.slice(0, 12).map(h => h.snowIn), snow);
+  assert.deepEqual(result.hours.slice(0, 12).map(h => h.totalIn), [0.07, 0.16, 0.29, 0.48, 0.74, 1.06, 1.44, 1.90, 2.46, 3.07, 3.75, 4.32]);
+  assert.equal(result.hours[12].totalIn, 4.39);
+  assert.equal(result.hours[23].totalIn, 8.64);
+  assert.equal(result.totalIn, 12.96);
+  assert.equal(result.hours[0].freezingLevelFt, 4500);
+  assert.equal(result.hours[1].freezingLevelFt, 4490);
 });
 
-test('missing snowfall breaks the running total while later hourly values and true zeroes remain visible', () => {
-  const data = snapshot();
+test('missing snow leaves subsequent totals unknown across windows and preserves zero and later individual amounts', () => {
+  const data = snapshot(sixAm, 25);
   data.models[0].points[1].snowIn = 0;
-  data.models[0].points[2].snowIn = null;
-  data.sources[1].status = 'unavailable';
+  data.models[0].points[12].snowIn = null;
   const result = hourlySnowForecast(data, sixAm);
-  assert.deepEqual(result.hours.slice(0, 3).map(h => [h.snowIn, h.totalIn]), [[0, 0], [null, null], [0.13, null]]);
+  assert.equal(result.hours[0].totalIn, 0);
+  assert.equal(result.hours[11].totalIn, null);
+  assert.equal(result.hours[12].snowIn, snow[0]);
+  assert.equal(result.hours[12].totalIn, null);
+  assert.equal(result.hours[35].snowIn, null);
   assert.equal(result.totalIn, null);
-  assert.equal(result.hours[0].snowLevelFt, null);
-  data.sources[0].status = 'unavailable';
-  assert.ok(hourlySnowForecast(data, sixAm).hours.every(hour => hour.snowIn === null));
 });
 
-test('snow, liquid and air temperature use available model weights anchored to the forecast collection', () => {
-  const data = snapshot(sixAm, 72);
-  const makeModel = (id, snowIn, precipIn, temperatureF) => ({
-    id, points: data.models[0].points.map(({ time }) => ({ time, snowIn, precipIn, temperatureF })),
+test('hourly snowfall and freezing height reweight the models that actually supply each field', () => {
+  const data = snapshot(sixAm, 90);
+  const model = (id, snowIn, freezingLevelFt) => ({
+    id, points: data.models[0].points.map(p => ({ ...p, snowIn, freezingLevelFt })),
   });
-  data.models = [
-    makeModel('ecmwf_ifs025', .1, .02, 10),
-    makeModel('gfs_hrrr', .5, null, 20),
-    makeModel('gfs_global', 1, .1, 40),
-  ];
+  data.models = [model('ecmwf_ifs025', .1, null), model('gfs_hrrr', .5, 4000), model('gfs_global', 1, 6000)];
   const [near] = hourlySnowForecast(data, sixAm).hours;
   assert.ok(Math.abs(near.snowIn - .44) < 1e-12);
-  assert.ok(Math.abs(near.precipIn - .036) < 1e-12);
-  assert.equal(near.temperatureF, 20);
+  assert.equal(near.freezingLevelFt, 4400);
   const [far] = hourlySnowForecast(data, sixAm + 49 * HOUR).hours;
   assert.ok(Math.abs(far.snowIn - .23) < 1e-12);
+  assert.equal(far.freezingLevelFt, 5000);
 });
 
-test('hourly navigation starts at the next full hour, jumps to Pacific mornings, and stops at the last available window', () => {
-  const now = Date.parse('2026-11-26T23:25:00Z');
-  const first = Date.parse('2026-11-27T00:00:00Z');
-  const data = snapshot(first, 120);
-  const initial = hourlySnowForecast(data, now);
-  assert.equal(initial.start, first);
-  assert.equal(initial.previous, null);
-  assert.equal(initial.next, first + 12 * HOUR);
-  assert.equal(initial.days.length, 4);
-  assert.equal(initial.days[1].start, sixAm);
-  const friday = hourlySnowForecast(data, now, sixAm);
-  assert.equal(friday.start, sixAm);
-  assert.equal(friday.previous, sixAm - 12 * HOUR);
-  const end = hourlySnowForecast(data, now, first + 999 * HOUR);
-  assert.equal(end.start, first + 108 * HOUR);
-  assert.equal(end.next, null);
+test('precipitation type distinguishes warm rain, wet snow, snow, dry hours and missing evidence', () => {
+  const data = snapshot();
+  const models = ['ecmwf_ifs025', 'gfs_hrrr', 'gfs_global', 'gem_global', 'icon_global'];
+  data.models = models.map(id => ({ id, points: data.models[0].points.map(p => ({...p})) }));
+  for (const { points } of data.models) {
+    Object.assign(points[1], { snowIn: 0, precipIn: .03, temperatureF: 37, freezingLevelFt: 4850 });
+    points[2].freezingLevelFt = 4700;
+    Object.assign(points[4], { snowIn: 0, precipIn: 0 });
+    Object.assign(points[5], { snowIn: 0, precipIn: .03, temperatureF: 28 });
+  }
+  const phases = () => hourlySnowForecast(data, sixAm).hours.map(h => h.phase);
+  assert.deepEqual(phases().slice(0, 5), ['rain', 'wet', 'snow', 'none', 'unknown']);
+  data.models.slice(0, 3).forEach(m => { m.points[1].temperatureF = null; });
+  assert.equal(phases()[0], 'unknown');
+  data.models.forEach(m => { m.points[0].freezingLevelFt = null; m.points[1].snowIn = .02; });
+  assert.equal(hourlySnowForecast(data, sixAm).hours[0].freezingLevelFt, null);
+  assert.equal(phases()[0], 'unknown');
+  data.sources[0].status = 'stale';
+  assert.ok(phases().every(p => p === 'unknown'));
+  data.sources[0].status = 'unavailable';
+  assert.ok(hourlySnowForecast(data, sixAm).hours.every(h => h.snowIn === null && h.freezingLevelFt === null));
 });
 
-test('the Pacific clock change keeps twelve actual hours and precisely one copy of each model interval', () => {
-  const start = Date.parse('2026-11-01T07:00:00Z'); // midnight before the clocks turn back
-  const result = hourlySnowForecast(snapshot(start, 60), start);
-  assert.equal(result.hours[1].start, Date.parse('2026-11-01T08:00:00Z'));
-  assert.equal(result.hours[2].start, Date.parse('2026-11-01T09:00:00Z'));
-  assert.equal(result.totalIn, 4.32);
-  assert.equal(result.days[1].start, Date.parse('2026-11-02T14:00:00Z'));
-});
-
-test('paging from a day jump keeps 12-hour steps and returns to the same window at the forecast boundary', () => {
-  const first = sixAm - 15 * HOUR;
-  const data = snapshot(first, 36);
-  const day = hourlySnowForecast(data, first, sixAm);
-  assert.equal(day.next, sixAm + 12 * HOUR);
-  const tail = hourlySnowForecast(data, first, day.next);
-  assert.equal(tail.previous, sixAm);
-  assert.equal(tail.next, null);
-  assert.equal(tail.hours.filter(hour => hour.snowIn !== null).length, 9);
-  assert.equal(tail.totalIn, null);
-  assert.deepEqual(hourlySnowForecast(data, first, tail.previous).hours, day.hours);
-
-  const initial = hourlySnowForecast(data, first);
-  const returned = hourlySnowForecast(data, first, initial.next);
-  assert.equal(returned.previous, first);
+test('36-hour coverage counts elapsed hours across both Pacific clock changes', () => {
+  for (const instant of ['2026-03-08T08:00:00Z', '2026-11-01T07:00:00Z']) {
+    const first = Date.parse(instant);
+    const { hours, totalIn } = hourlySnowForecast(snapshot(first), first);
+    assert.equal(new Set(hours.map(h => h.start)).size, 36);
+    assert.equal(hours.at(-1).start, first + 35 * HOUR);
+    assert.equal(totalIn, 12.96);
+  }
 });

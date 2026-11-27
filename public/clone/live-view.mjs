@@ -164,58 +164,59 @@ function hourlyDepth(inches) {
 }
 
 export function hourlySnowCard(data, state) {
-  const { start, hours, totalIn, days, previous, next } = hourlySnowForecast(data, state.now, state.hourlyStart);
+  const forecast = hourlySnowForecast(data, state.now);
+  const page = [0, 1, 2].includes(state.hourlyPage) ? state.hourlyPage : 0;
+  const hours = forecast.hours.slice(page * 12, (page + 1) * 12);
   const resort = resortFor(data);
   const point = t('{0}, {1} ft', t(resort.pointLabel), resort.elevationFt.toLocaleString(displayLanguage));
   const unit = weatherUnit('in');
-  const hourName = (time, zone) => formatTime(time, { minute: undefined, timeZoneName: zone }).replace(/AM|PM/g, part => part.toLowerCase());
-  const labels = hours.map(hour => hourName(hour.start));
-  // On the fall clock change the two 1 am columns need their zone abbreviations.
-  const hourLabels = labels.map((label, i) => labels.indexOf(label) === labels.lastIndexOf(label) ? label : hourName(hours[i].start, 'short'));
-  const maxSnow = Math.max(0, ...hours.map(hour => hour.snowIn ?? 0));
-  const covered = hours.filter(hour => finite(hour.snowIn)).length;
-  const daysMarkup = days.map(day => {
-    const weekday = formatDate(day.date, { month: undefined, day: undefined });
-    return `<button type="button" id="hourly-day-${day.date}" data-hourly-start="${day.start}" aria-pressed="${day.selected}" aria-label="${escape(formatDate(day.date))}">${weekday} ${localParts(day.date).day}</button>`;
-  }).join('');
-  function step(direction, target, label) {
-    return `<button type="button" id="hourly-${direction}" class="hourly-step" aria-label="${label}" ${target === null ? 'disabled' : `data-hourly-start="${target}"`}><span class="hourly-arrow" aria-hidden="true"></span><span class="hourly-long-step">${t('12 hours')}</span><span class="hourly-short-step">${t('12h')}</span></button>`;
+  const hourName = (time, zone) => formatTime(time, { minute: undefined, timeZoneName: zone }).replace(/AM|PM/g, s => s.toLowerCase());
+  function hourLabel(time) {
+    const name = hourName(time);
+    // Across the fall clock change, both copies of 1 am need a zone even on adjacent pages.
+    return name === hourName(time - HOUR) || name === hourName(time + HOUR) ? hourName(time, 'short') : name;
   }
+  const windows = [0, 1, 2].map(index => {
+    const from = forecast.hours[index * 12].start, to = from + 12 * HOUR;
+    return `<button type="button" id="hourly-window-${index}" data-hourly-page="${index}" aria-pressed="${index === page}" aria-controls="hourly-table-scroll" aria-label="${escape(timestamp(from))} – ${escape(timestamp(to))}"><strong>${formatDate(from)}</strong><span>${hourLabel(from)} – ${hourLabel(to)}</span></button>`;
+  }).join('');
   const headings = hours.map((hour, i) => {
     const midnight = i > 0 && localParts(hour.start).hour === 0;
-    return `<th scope="col" title="${escape(timestamp(hour.start))}">${hourLabels[i]}${midnight ? `<small>${formatDate(hour.start, { month: undefined, day: undefined })}</small>` : ''}</th>`;
+    return `<th scope="col" title="${escape(timestamp(hour.start))}">${hourLabel(hour.start)}${midnight ? `<small>${formatDate(hour.start, { month: undefined, day: undefined })}</small>` : ''}</th>`;
   }).join('');
-  function row(label, units, cell, className = '') {
-    return `<tr class="${className}"><th scope="row">${label} <small>${units}</small></th>${hours.map(hour => `<td>${cell(hour)}</td>`).join('')}</tr>`;
+  function row(label, note, cell, className = '') {
+    return `<tr class="${className}"><th scope="row">${label}${note ? `<small>${note}</small>` : ''}</th>${hours.map(hour => `<td>${cell(hour)}</td>`).join('')}</tr>`;
   }
+  const maxSnow = Math.max(0, ...forecast.hours.map(hour => hour.snowIn ?? 0));
   const bars = row(t('New snow'), unit, hour => {
     const height = maxSnow && hour.snowIn > 0 ? hour.snowIn / maxSnow * 100 : 0;
-    return `<div class="hourly-bar-track"><div class="hourly-bar" style="height:${height}%"><span>${hourlyDepth(hour.snowIn)}</span></div></div>`;
+    return `<div class="hourly-bar-track" data-phase="${hour.phase}"><div class="hourly-bar" style="height:${height}%"><span>${hourlyDepth(hour.snowIn)}</span></div></div>`;
   }, 'hourly-bars');
+  const type = { rain: t('Rain'), wet: t('Wet snow'), snow: t('Snow'), none: t('None'), unknown: t('Unknown') };
+  const weekday = formatDate(forecast.start, { month: undefined, day: undefined });
+  const since = t('since {0} · {1}', `${weekday} ${hourLabel(forecast.start)}`, unit);
+  const covered = forecast.hours.filter(hour => finite(hour.snowIn)).length;
   return `<article class="hourly-snow" aria-labelledby="hourly-heading">
     <header class="hourly-heading"><div><h2 id="hourly-heading">${t('Hourly snow accumulation')}</h2>
-      <p>${escape(t(resort.name))} · ${escape(point)} · ${formatDate(start)}</p></div>
-      <div class="hourly-total"><strong>${hourlyDepth(totalIn)}${finite(totalIn) ? ` <small>${unit}</small>` : ''}</strong><span>${t('12-hour total')}</span></div>
+      <p>${escape(t(resort.name))} · ${escape(point)}</p></div>
+      <div class="hourly-total"><strong>${hourlyDepth(forecast.totalIn)}${finite(forecast.totalIn) ? ` <small>${unit}</small>` : ''}</strong><span>${t('36-hour snow total')}</span></div>
     </header>
-    <div class="hourly-nav">
-      ${step('previous', previous, t('Previous 12 hours'))}
-      <div class="hourly-days" role="group" aria-label="${t('Choose forecast day')}">${daysMarkup}</div>
-      ${step('next', next, t('Next 12 hours'))}
-    </div>
-    <div class="hourly-scroll" id="hourly-table-scroll" data-live-scroll="hourly-${start}" role="region" tabindex="0" aria-label="${t('Hourly forecast table, scroll for later hours')}">
+    <div class="hourly-nav" role="group" aria-label="${t('Next 36 hours in 12-hour windows')}">${windows}</div>
+    <div class="hourly-scroll" id="hourly-table-scroll" data-live-scroll="hourly-${hours[0].start}" role="region" tabindex="0" aria-label="${t('Hourly forecast table, scroll for later hours')}">
       <table><caption class="cloud-sr-only">${t('Snowfall for each hour starting at the time shown, Pacific time')}</caption>
         <colgroup><col class="hourly-label-column"><col span="12"></colgroup>
         <thead><tr><th scope="col">${t('Hour (PT)')}</th>${headings}</tr></thead>
         <tbody>${bars}
-          ${row(t('Total since {0}', hourLabels[0].replaceAll(' ', '\u00a0')), unit, hour => hourlyDepth(hour.totalIn), 'hourly-running')}
-          ${row(t('Liquid precip.'), unit, hour => hourlyDepth(hour.precipIn))}
-          ${row(t('Snow level'), t('ft'), hour => finite(hour.snowLevelFt) ? (Math.round(hour.snowLevelFt / 100) * 100).toLocaleString(displayLanguage) : '—')}
-          ${row(t('Temperature'), weatherUnit('°F'), hour => finite(hour.temperatureF) ? Math.round(convertWeather(hour.temperatureF, '°F')) : '—')}
+          ${row(t('Precip. type'), '', hour => `<span class="hourly-type" data-phase="${hour.phase}">${type[hour.phase]}</span>`)}
+          ${row(t('Snow total'), since, hour => hourlyDepth(hour.totalIn), 'hourly-running')}
+          ${row(t('Freezing level'), t('ft above sea level'), hour => finite(hour.freezingLevelFt) ? (Math.round(hour.freezingLevelFt / 100) * 100).toLocaleString(displayLanguage) : '—')}
         </tbody></table>
     </div>
     <footer>${forecastStatus(data)}
-      ${covered < hours.length ? `<p>${t('Snowfall covers {0} of 12 hours. Totals need every hour in the interval.', covered)}</p>` : ''}
-      ${sourceUsable(data, 'nws') ? '' : snowLevelStatus(data)}
+      ${covered < forecast.hours.length ? `<p>${t('Snowfall covers {0} of 36 hours. The total needs all 36.', covered)}</p>` : ''}
+      <details id="hourly-type-guide" class="live-preserve-details"><summary>${t('How types are estimated')}</summary>
+        <p>${t('With snowfall, a freezing level at or above the forecast point indicates wet snow. A lower freezing level indicates snow. Rain requires zero forecast snow and warm precipitation in at least three models and a majority of reporting models.')}</p>
+      </details>
     </footer>
   </article>`;
 }
