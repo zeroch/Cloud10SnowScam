@@ -185,7 +185,7 @@ export default {
   "Observations": "观测与报告",
   "Nearby station · {0}": "附近气象站 · {0}",
   "NWAC · {0} ft": "NWAC · 海拔 {0} 英尺",
-  "24-hour snowfall": "24 小时降雪量",
+  "Past 24h snow accumulation": "过去24小时降雪量",
   "Snow depth": "积雪深度",
   "Air temperature": "气温",
   "NWAC’s 24-hour board measures snow since the board was last cleared. Snow depth is the total snow on the ground at this station.": "NWAC 的 24 小时测雪板记录上次清板以来的降雪。积雪深度指该站地面上的积雪总厚度。",

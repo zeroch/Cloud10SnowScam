@@ -100,7 +100,7 @@ test('Chinese conditions distinguish observed, stale and absent readings and ret
     snowfall24h: { value: 0, observedAt, state: 'fresh' }, depth: { value: 5, observedAt, state: 'stale' } },
     road: { condition: 'Chains advised <test>', directions: [{ direction: 'Eastbound', message: 'Official advisory' }] } } };
   const html = view.morningConditions(data);
-  for (const text of ['山区天气与路况', '24 小时降雪量', '实测', '观测数据已过期', '暂无近期读数', '东行']) assert.ok(html.includes(text));
+  for (const text of ['山区天气与路况', '过去24小时降雪量', '实测', '观测数据已过期', '暂无近期读数', '东行']) assert.ok(html.includes(text));
   assert.match(html, /lang="en">Chains advised &lt;test&gt;/);
 });
 
