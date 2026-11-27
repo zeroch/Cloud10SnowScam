@@ -87,3 +87,10 @@ class CandidateTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 self.select(self.sha)
             self.artifact[key] = original
+
+    def test_automatic_release_can_only_use_the_triggering_ci_attempt(self):
+        for run, attempt in [(999, 2), (123, 1)]:
+            with self.subTest(run=run, attempt=attempt), self.assertRaises(ValueError):
+                select_candidate(self.sha, 'owner/project', self.api, self.repo, run, attempt)
+        candidate = select_candidate(self.sha, 'owner/project', self.api, self.repo, 123, 2)
+        self.assertEqual(candidate['artifact_id'], 456)

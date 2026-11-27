@@ -2,20 +2,35 @@
 
 Open a pull request against `main`. The **Cloud10 CI** check runs the Node tests, release selection tests, collector handoff checks and Wrangler checks. You can merge your own PR when the branch is up to date and that check passes. Reviewer approval is optional. Each successful push build on `main` captures the Worker and browser files together for 90 days.
 
-## Choose a release
+## Preview and automatic rollout
 
-1. In GitHub, open **Actions → Release to Cloudflare → Run workflow**. Use the `main` branch. Enter a merged PR number such as `#42`, a release tag, or a full 40-character commit SHA.
-2. Open the run. **Resolve main build** shows the exact commit and links to its CI run. The commit must be on the first-parent history of `main` and have a retained, successful push build. The job awaiting deployment approval displays that same SHA.
-3. Select **Review deployments → production → Approve and deploy**. The workflow checks the archive digest, uploads the version, and reads its immutable Cloudflare Version URL. It checks every exported response against its manifest and verifies the build SHA, D1 health and all four resort dashboards before switching traffic.
-4. The run summary records the Git SHA and the Cloudflare versions serving traffic before and after promotion. The final step checks the public hostname. If promotion is interrupted, check the current deployment in Cloudflare before retrying. Only one production deployment runs at a time.
+After push CI passes on `main`, open **Actions → Release to Cloudflare → Stage and verify**. The job publishes a version of `cloud10-forecast` at 0% production traffic. Its summary links to the exact build and the Chinese Crystal Mountain page. The preview reads the live forecast database. The ordinary Worker URL and `forecast.cloud10snow.com` serve the production deployment.
 
-To roll back, run the same workflow with the earlier PR, tag or SHA while its CI artifact is retained. For an expired artifact or an emergency, use the previously recorded version ID in **Cloudflare → Workers & Pages → cloud10-forecast → Deployments** and select its rollback action. A Worker rollback reuses the current D1 data. Keep any service used by an older version available for as long as you need to roll back to it.
+GitHub checks the archive digest, every exported response, the Git SHA, D1 health and all four resort dashboards on the Version URL. A passing preview starts the rollout automatically. The percentages are shares of requests.
+
+| Time after the first traffic switch | New version | Previous production |
+| --- | --- | --- |
+| Start | 10% | 90% |
+| After 15 healthy minutes | 50% | 50% |
+| After another 15 healthy minutes | 100% | 0% |
+
+During each hold the job probes the exact candidate and the public health endpoint about once a minute. At 100% it verifies the public site against the same manifest. A failed check after traffic moves restores the recorded previous production version. Allow for runner startup, retries and Cloudflare propagation.
+
+GitHub serializes production changes. An automatic build superseded on `main` before its turn is skipped. A new merge during an active rollout can stage while the active rollout finishes. To choose a particular retained build yourself, use **Release to Cloudflare → Run workflow** on `main` with a merged PR number such as `#42`, a release tag, or a full main commit SHA. This uses the same checks and rollout schedule.
+
+## Stop or roll back
+
+1. Open **Actions → Roll back production → Run workflow** and choose `main`.
+2. Leave the input blank to reverse the managed release currently serving traffic. To stop a specific build, including one still staging, enter its numeric **release run ID** from the staging summary or the release run URL.
+3. The workflow stops that run, checks which release owns the live traffic, and restores its actual predecessor at 100%. A stale or repeated rollback request skips the traffic change. D1 keeps its current forecast data.
+
+The baseline version ID is recorded in Cloudflare's deployment message at the first split. If a runner is lost, use the same rollback workflow. For a deployment predating this automation or if GitHub is unavailable, open **Cloudflare → Workers & Pages → cloud10-forecast → Deployments**, select the previous stable version and choose **Rollback**. A running rollout stops when it detects a different deployment. [Cloudflare rollbacks](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/)
 
 ## Repository and Worker setup
 
 The repository has an active branch ruleset for `main`. The importable settings are in [main.json](../../.github/rulesets/main.json). The required check is **Cloud10 CI** from the GitHub Actions app and the bypass list is empty.
 
-Configure the GitHub environment **production** for branch `main` only. Set the owner as required reviewer, allow the owner to approve a deployment they dispatch and disable administrator bypass. These credentials belong in that environment.
+Configure the GitHub environment **production** for the selected branch `main` only. Disable **Required reviewers** and the **Wait timer** so passing main builds can roll out automatically and emergency rollbacks can start immediately. Keep administrator bypass disabled. The Cloudflare credentials belong in this environment.
 
 | Kind | Name | Value |
 | --- | --- | --- |
@@ -23,7 +38,7 @@ Configure the GitHub environment **production** for branch `main` only. Set the 
 | Variable | `CLOUDFLARE_ACCOUNT_ID` | Production Cloudflare account ID |
 | Variable | `CLOUDFLARE_D1_DATABASE_ID` | ID of the existing forecast D1 database bound as `DB` |
 
-On the Worker’s **Domains** tab, enable the **Preview** switch for its version-specific `workers.dev` URLs. An uploaded version uses its own static assets and the existing D1 binding. The release workflow uses the existing hostname and cron and performs no database migrations. Its live probes use read-only application endpoints.
+In the Worker’s **Settings → Domains & Routes**, enable **Version URLs**. An uploaded version uses its own static assets and the existing D1 binding. The release workflow uses the existing hostname and cron. Its live probes use read-only application endpoints. [Cloudflare Version URLs](https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/)
 
 For a new installation, provision the Worker, D1, hostname and trigger once. Apply [the shared schema](../../deploy/cloudflare-pilot/schema.sql) followed by [the production schema](../../deploy/cloudflare-production/schema.sql). The example config includes the collector schedule. The separate [pilot configuration](../../deploy/cloudflare-pilot/wrangler.example.jsonc) describes the optional 24-hour measurement window.
 

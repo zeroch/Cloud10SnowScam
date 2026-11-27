@@ -1,6 +1,10 @@
 name: Release to Cloudflare
-run-name: Release ${{ inputs.version }} to Cloudflare
+run-name: Release ${{ inputs.version || github.event.workflow_run.head_sha }} to Cloudflare
 on:
+  workflow_run:
+    workflows: [Cloud10 CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -10,9 +14,21 @@ on:
 
 permissions: {}
 
+# Rollback can stop this particular run, including while it is still staging.
+concurrency:
+  group: cloud10-release-run-${{ github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   select:
     name: Resolve main build
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -24,8 +40,6 @@ jobs:
       artifact_id: ${{ steps.pick.outputs.artifact_id }}
       digest: ${{ steps.pick.outputs.digest }}
     steps:
-      - name: Require dispatch from main
-        run: test "$GITHUB_REF" = refs/heads/main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -33,21 +47,23 @@ jobs:
       - id: pick
         name: Resolve commit and verify successful main CI
         env:
-          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_VERSION: ${{ inputs.version || github.event.workflow_run.head_sha }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+          CI_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           GH_TOKEN: ${{ github.token }}
         run: python3 deploy/cloudflare-production/candidate.py
 
-  deploy:
-    name: Deploy ${{ needs.select.outputs.sha }}
+  stage:
+    name: Stage and verify ${{ needs.select.outputs.sha }}
     needs: select
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
       name: production
-      url: https://forecast.cloud10snow.com
-    concurrency:
-      group: cloud10-production
-      cancel-in-progress: false
+      deployment: false
+    outputs:
+      version: ${{ steps.upload.outputs.id }}
+      url: ${{ steps.upload.outputs.url }}
     permissions:
       contents: read
       actions: read
@@ -68,14 +84,7 @@ jobs:
           ARTIFACT_ID: ${{ needs.select.outputs.artifact_id }}
           DIGEST: ${{ needs.select.outputs.digest }}
           GH_TOKEN: ${{ github.token }}
-        run: |
-          archive="$RUNNER_TEMP/cloud10.zip"
-          curl --fail --silent --show-error --location --retry 3 \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" --output "$archive"
-          printf '%s  %s\n' "$DIGEST" "$archive" | sha256sum --check --strict
-          mkdir -p dist/cloudflare-production
-          unzip -q "$archive" -d dist/cloudflare-production
+        run: bash deploy/cloudflare-production/fetch-bundle.sh
       - name: Configure the selected Worker
         env:
           D1_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
@@ -99,12 +108,57 @@ jobs:
       - name: Verify the version URL, assets and four live dashboards
         env:
           VERSION_URL: ${{ steps.upload.outputs.url }}
-        run: python3 deploy/cloudflare-production/verify-live.py "$VERSION_URL" dist/cloudflare-production/manifest.json "$RUNNER_TEMP/verification.json" "$RELEASE_SHA"
-      - name: Promote this verified version to 100% and record it
+        run: |
+          echo "::notice::Staging preview: $VERSION_URL/location/crystalmountain/snow-summary?lang=zh-CN"
+          echo "[Preview Crystal Mountain in Chinese]($VERSION_URL/location/crystalmountain/snow-summary?lang=zh-CN)" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Roll back this release]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/cloudflare-rollback.yml) using run ID \`$GITHUB_RUN_ID\`." >> "$GITHUB_STEP_SUMMARY"
+          python3 deploy/cloudflare-production/verify-live.py "$VERSION_URL" dist/cloudflare-production/manifest.json "$RUNNER_TEMP/verification.json" "$RELEASE_SHA"
+
+  rollout:
+    name: Roll out 10%, 50%, then 100%
+    needs: [select, stage]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: production
+      url: https://forecast.cloud10snow.com
+    concurrency:
+      group: cloud10-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+    env:
+      RELEASE_SHA: ${{ needs.select.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check that an automatic release is still the main tip
+        id: eligible
         env:
-          VERSION_ID: ${{ steps.upload.outputs.id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
+            current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+            if [[ "$current" != "$RELEASE_SHA" ]]; then
+              echo "A newer main commit superseded $RELEASE_SHA before rollout." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Retrieve the tested release manifest
+        if: steps.eligible.outputs.ready == 'true'
+        env:
+          ARTIFACT_ID: ${{ needs.select.outputs.artifact_id }}
+          DIGEST: ${{ needs.select.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash deploy/cloudflare-production/fetch-bundle.sh
+      - name: Monitor the preview and live traffic for the 30-minute rollout
+        if: steps.eligible.outputs.ready == 'true'
+        env:
+          VERSION_URL: ${{ needs.stage.outputs.url }}
+          VERSION_ID: ${{ needs.stage.outputs.version }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: bash deploy/cloudflare-production/promote.sh
-      - name: Check the public hostname after promotion
-        run: python3 deploy/cloudflare-production/verify-live.py https://forecast.cloud10snow.com dist/cloudflare-production/manifest.json "$RUNNER_TEMP/production.json" "$RELEASE_SHA"
+        run: python3 deploy/cloudflare-production/rollout.py promote

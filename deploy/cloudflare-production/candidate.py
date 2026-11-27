@@ -1,4 +1,4 @@
-"""Resolve a manual release selection to an immutable artifact from main's CI."""
+"""Resolve a release selection to an immutable artifact from main's CI."""
 import json
 import os
 from pathlib import Path
@@ -16,7 +16,7 @@ def git(args, directory):
     return result.stdout.strip()
 
 
-def select_candidate(selection, repository, api, directory='.'):
+def select_candidate(selection, repository, api, directory='.', run_id=None, run_attempt=None):
     value = selection.strip()
     if re.fullmatch(r'[0-9a-fA-F]{40}', value):
         sha = value.lower()
@@ -40,6 +40,8 @@ def select_candidate(selection, repository, api, directory='.'):
     runs = api('actions/workflows/cloud10-ci.yml/runs', branch='main', event='push',
                head_sha=sha, status='success', per_page=100)['workflow_runs']
     for run in runs:
+        if run_id is not None and (run['id'], run['run_attempt']) != (run_id, run_attempt):
+            continue
         if (run['head_sha'] != sha or run['head_branch'] != 'main' or run['event'] != 'push'
                 or (run.get('head_repository') or {}).get('full_name') != repository
                 or run['status'] != 'completed' or run['conclusion'] != 'success'):
@@ -64,7 +66,10 @@ def main():
         with urlopen(request, timeout=30) as response:
             return json.load(response)
 
-    candidate = select_candidate(os.environ['REQUESTED_VERSION'], repository, api)
+    trigger = os.environ.get('CI_RUN_ID')
+    candidate = select_candidate(os.environ['REQUESTED_VERSION'], repository, api,
+                                 run_id=int(trigger) if trigger else None,
+                                 run_attempt=int(os.environ['CI_RUN_ATTEMPT']) if trigger else None)
     with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
         for name, value in candidate.items():
             print(f'{name}={value}', file=output)
