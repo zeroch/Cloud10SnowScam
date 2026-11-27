@@ -326,3 +326,87 @@ body[data-live] #pageContent.cloud-page>.cloud-evidence-nav{display:flex;gap:24p
 .cloud-resort-control label { font-size:14px; color:#596a7b; }
 .cloud-resort-control select { min-width:0; flex:1; height:44px; padding:0 34px 0 12px; border:1px solid #dfe4e9; border-radius:10px; background-color:#fff; color:#24384b; font:inherit; font-size:16px; font-weight:600; }
 .cloud-resort-control select:focus-visible { outline:3px solid #137fc6; outline-offset:3px; }
+
+/* Hourly forecast card. The metric column stays in place as the hours scroll. */
+#live-hourly {
+  min-width: 0;
+  scroll-margin-top: calc(var(--cloud-header-height, 64px) + var(--cloud-section-nav-height, 48px) + 12px);
+}
+.hourly-snow {
+  --snow-bar: #2679b7;
+  --snow-value: #195b8d;
+  --snow-total: #eaf4fb;
+  margin-bottom: 20px;
+  padding: 22px 20px 14px;
+  border: 1px solid var(--club-rule);
+  border-radius: 7px;
+  background: var(--club-sheet);
+  color: var(--club-ink);
+  font-family: var(--club-sans);
+  font-variant-numeric: tabular-nums;
+}
+.hourly-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding-bottom: 17px; }
+.hourly-heading h2 { margin: 0; color: inherit; font: 500 clamp(1.65rem, 4.2vw, 3.3rem)/1.05 var(--club-display); letter-spacing: -.025em; }
+.hourly-heading p, .hourly-total > span { margin: 5px 0 0; color: var(--club-secondary); font-size: 1rem; line-height: 1.35; }
+.hourly-total { flex: none; text-align: right; }
+.hourly-total strong { display: block; font: 600 clamp(2.25rem, 4.45vw, 3.6rem)/.95 var(--club-display); white-space: nowrap; }
+.hourly-total strong small { font: 600 .4em/1 var(--club-sans); }
+.hourly-total > span { display: block; }
+.hourly-nav {
+  display: flex; justify-content: space-between; align-items: stretch; gap: 12px;
+  margin-bottom: 14px; border-block: 1px solid var(--club-rule);
+}
+.hourly-nav button { min-height: 56px; border: 0; border-radius: 0; background: transparent; color: inherit; font: 500 1.08rem/1.2 var(--club-sans); cursor: pointer; }
+.hourly-nav button:hover:not(:disabled) { background: var(--club-hover); }
+.hourly-nav button:focus-visible, .hourly-scroll:focus-visible { outline: 2px solid var(--club-seal); outline-offset: -2px; }
+.hourly-days { display: flex; justify-content: center; gap: clamp(8px, 2vw, 24px); }
+.hourly-days button { min-width: 4.5rem; padding: 0 8px; border-bottom: 3px solid transparent; white-space: nowrap; }
+.hourly-days button[aria-pressed="true"] { color: var(--club-seal); border-bottom-color: currentColor; }
+.hourly-nav .hourly-step { display: inline-flex; align-items: center; gap: 5px; padding: 0 3px; color: var(--club-seal); white-space: nowrap; }
+.hourly-nav .hourly-step:disabled { color: #70777a; cursor: default; }
+.hourly-arrow { width: 1.15em; height: 1.15em; background: currentColor; mask: url('/clone/icons/arrow-right.svg') center / contain no-repeat; }
+#hourly-previous .hourly-arrow { transform: rotate(180deg); }
+#hourly-next .hourly-arrow { order: 1; }
+.hourly-short-step { display: none; }
+.hourly-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.hourly-scroll table { width: 100%; min-width: 49rem; table-layout: fixed; border-spacing: 0; border-collapse: separate; font-size: 1.1rem; line-height: 1.25; }
+.hourly-label-column { width: 9.8rem; }
+.hourly-scroll :is(th, td) { padding: 8px 3px; border-bottom: 1px solid var(--club-rule); text-align: center; vertical-align: middle; }
+.hourly-scroll th { font-weight: 700; }
+.hourly-scroll th:first-child { position: sticky; left: 0; z-index: 1; padding-left: 4px; text-align: left; background: var(--club-sheet); border-right: 1px solid var(--club-rule); }
+.hourly-scroll th small { color: var(--club-secondary); font-size: .86em; font-weight: 400; }
+.hourly-scroll thead th { height: 3.1rem; }
+.hourly-scroll thead th small { display: block; }
+.hourly-scroll .hourly-bars td { padding: 31px 3px 6px; }
+.hourly-bar-track { height: 5rem; display: flex; align-items: end; }
+.hourly-bar { position: relative; width: 100%; max-height: 100%; border-radius: 6px 6px 0 0; background: var(--snow-bar); }
+.hourly-bar span { position: absolute; inset-inline: 0; bottom: 100%; padding-bottom: 4px; color: var(--snow-value); font-weight: 700; white-space: nowrap; }
+.hourly-scroll .hourly-running > *, .hourly-scroll .hourly-running th:first-child { height: 3.35rem; background: var(--snow-total); font-weight: 700; }
+.hourly-running th small { display: block; }
+.hourly-snow footer { display: grid; gap: 3px; margin-top: 10px; color: var(--club-secondary); font-size: .8rem; line-height: 1.45; }
+.hourly-snow footer p { margin: 0; }
+@media (max-width: 650px) {
+  .hourly-snow { padding: 16px 10px 12px; }
+  .hourly-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 8px; padding-bottom: 13px; }
+  .hourly-heading > div:first-child { display: contents; }
+  .hourly-heading p { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+  .hourly-total { grid-column: 2; grid-row: 1; }
+  .hourly-heading p, .hourly-total > span { font-size: .8rem; }
+  .hourly-total strong { font-size: 2.05rem; }
+  .hourly-nav { gap: 2px; margin-bottom: 3px; }
+  .hourly-nav button { min-height: 44px; font-size: .8rem; }
+  .hourly-days { flex: 1; justify-content: space-evenly; gap: 0; }
+  .hourly-days button { min-width: 0; padding-inline: 4px; }
+  .hourly-nav .hourly-step { gap: 2px; padding-inline: 1px; }
+  .hourly-long-step { display: none; }
+  .hourly-short-step { display: inline; }
+  .hourly-scroll table { min-width: 46rem; font-size: .875rem; }
+  .hourly-label-column { width: 6.3rem; }
+  .hourly-running th small { display: inline; }
+  .hourly-bar-track { height: 4.8rem; }
+}
+@media (max-width: 359px) {
+  .hourly-days button { padding-inline: 1px; }
+  .hourly-nav .hourly-step { min-width: 32px; justify-content: center; }
+  .hourly-short-step { display: none; }
+}

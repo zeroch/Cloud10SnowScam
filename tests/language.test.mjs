@@ -17,6 +17,19 @@ async function browserView(name) {
 const view = await browserView('live-view');
 const { renderComparison } = await browserView('resort-comparison-view');
 
+test('hourly amounts and headings follow Chinese, depth and temperature preferences', ctx => {
+  ctx.after(() => { setDisplayLanguage('en'); setDisplayUnits({}); });
+  setDisplayLanguage('zh-CN', chinese);
+  setDisplayUnits({ depth: 'cm', temperature: 'C' });
+  const now = Date.parse('2026-11-27T14:00:00Z');
+  const points = Array.from({ length: 13 }, (_, i) => ({ time: now + i * 3_600_000, snowIn: .5, precipIn: .05, temperatureF: 14 }));
+  const data = { resort: RESORTS[0], models: [{ id: 'ecmwf_ifs025', points }], sources: [{ id: 'forecast', status: 'cached', fetchedAt: now }] };
+  assert.equal(typeof view.hourlySnowCard, 'function');
+  const html = view.hourlySnowCard(data, { now });
+  for (const value of ['逐小时降雪量', '15.24', '1.27', '0.13', '-10', '厘米', '°C']) assert.ok(html.includes(value), value);
+  assert.doesNotMatch(html, /12-hour total|Hour \(PT\)|undefined|NaN/);
+});
+
 test('unit preferences convert forecast amounts without changing the forecast or snow rating', ctx => {
   ctx.after(() => setDisplayUnits({}));
   const entries = resortComparisonFixture();

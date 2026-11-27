@@ -47,31 +47,83 @@ export function intervalTotal(points, start, end, field) {
 
 export const SNOW_BLEND = Object.freeze({ nearHours: 48, preferredWeight: 0.8 });
 
-export function createSnowfallBlend(data, now, models = data.models || []) {
+function createHourlyBlend(data, now, models) {
   // The feed supplies a collection time but no shared initialization time.
   // Anchor every window in this snapshot to the same first full forecast hour.
   const collectedAt = data.sources?.find(source => source.id === 'forecast')?.fetchedAt ?? data.generatedAt ?? now;
   const nearEnd = (Math.ceil(collectedAt / HOUR) + SNOW_BLEND.nearHours) * HOUR;
   const inputs = models.map(model => ({
     id: model.id,
-    hourly: new Map(model.points.map(point => [point.time, point.snowIn])),
+    hourly: new Map(model.points.map(point => [point.time, point])),
   }));
   const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 
-  function snowfallAt(time) {
+  return (time, field) => {
     const preferred = [], others = [];
     for (const { id, hourly } of inputs) {
-      const value = hourly.get(time);
-      if (!finite(value) || value < 0) continue;
+      const value = hourly.get(time)?.[field];
+      if (!finite(value) || (field !== 'temperatureF' && value < 0)) continue;
       if (id === 'ecmwf_ifs025' || (id === 'gfs_hrrr' && time <= nearEnd)) preferred.push(value);
       else others.push(value);
     }
     if (!preferred.length) return mean(others);
     if (!others.length) return mean(preferred);
     return SNOW_BLEND.preferredWeight * mean(preferred) + (1 - SNOW_BLEND.preferredWeight) * mean(others);
-  }
+  };
+}
 
-  return (start, end) => totalForHours(start, end, snowfallAt).total;
+export function createSnowfallBlend(data, now, models = data.models || []) {
+  const valueAt = createHourlyBlend(data, now, models);
+  return (start, end) => totalForHours(start, end, time => valueAt(time, 'snowIn')).total;
+}
+
+export function hourlySnowForecast(data, now, requestedStart) {
+  const first = Math.ceil(now / HOUR) * HOUR;
+  const span = 12 * HOUR;
+  const forecastStatus = data.sources?.find(source => source.id === 'forecast')?.status;
+  const models = ['fresh', 'cached', 'stale'].includes(forecastStatus) ? data.models || [] : [];
+  const levelStatus = data.sources?.find(source => source.id === 'nws')?.status;
+  const levels = ['fresh', 'cached'].includes(levelStatus) ? data.snowLevels || [] : [];
+
+  // Providers can pad the end of short-range model runs with null hours.
+  let lastEnd = first;
+  for (const model of models) {
+    for (const p of model.points) {
+      if (p.time > lastEnd && (finite(p.snowIn) || finite(p.precipIn) || finite(p.temperatureF))) lastEnd = p.time;
+    }
+  }
+  const end = Math.min(lastEnd, localDayStart(first, 15));
+  const last = Math.max(first, end - HOUR);
+  const requested = finite(requestedStart) ? Math.max(first, Math.floor(requestedStart / HOUR) * HOUR) : first;
+  // If refreshed data ends before the selected window, show the final full window when available.
+  const start = requested <= last ? requested : Math.max(first, end - span);
+  const selectedDay = localDayStart(start);
+  const days = [];
+  for (let offset = 0; offset < 15; offset++) {
+    const date = localDayStart(first, offset);
+    if (date > last) break;
+    const morning = offset === 0 ? first : nightWindow(date, -1).end;
+    days.push({ date, start: morning <= last ? morning : date, selected: date === selectedDay });
+  }
+  const firstTab = Math.max(0, Math.min(days.findIndex(day => day.selected) - 1, days.length - 4));
+
+  const valueAt = createHourlyBlend(data, now, models);
+  const hours = Array.from({ length: 12 }, (_, i) => {
+    const from = start + i * HOUR, to = from + HOUR;
+    // Accumulations are timestamped at the end of the preceding hour.
+    // Temperature and the NWS level describe conditions at the column's start.
+    return {
+      start: from, snowIn: valueAt(to, 'snowIn'), precipIn: valueAt(to, 'precipIn'),
+      temperatureF: valueAt(from, 'temperatureF'),
+      snowLevelFt: levels.find(level => level.start <= from && from < level.end)?.feet ?? null,
+      totalIn: totalForHours(start, to, time => valueAt(time, 'snowIn')).total,
+    };
+  });
+  return {
+    start, hours, totalIn: hours.at(-1).totalIn, days: days.slice(firstTab, firstTab + 4),
+    previous: start - span >= first ? start - span : null,
+    next: start + span <= last ? start + span : null,
+  };
 }
 
 export function forecastRange(models, start, end, field = 'snowIn') {

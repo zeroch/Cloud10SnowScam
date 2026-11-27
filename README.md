@@ -23,6 +23,7 @@ Open the [resort comparison](http://127.0.0.1:4173/) or the [Stevens Pass foreca
 
 - **Tomorrow** covers 6 pm to 6 am Pacific. During the night it shows the remaining full hours. Model agreement reflects the spread of complete overnight totals. Snow-quality estimates also use the resort’s NWS snow-level guidance.
 - **The 15-day outlook** adds hourly snowfall across Pacific calendar days. For the first 48 full hours, ECMWF and HRRR share 80% of the blend. Afterward ECMWF receives 80%. Other available models share the remaining 20%. Weights redistribute when a model is missing. Uncovered hours leave a period incomplete.
+- **Hourly snow accumulation** shows 12 Pacific hours at a time. The 6 am column covers 6–7 am. The card uses the same model weights for new snow, liquid precipitation and air temperature, with snow level from NWS. Running totals use unrounded snowfall and require coverage for every hour since the start of the displayed window.
 - **Detailed forecasts** compare ECMWF, GFS, ICON, GDPS and HRRR over 24, 72 or 120 hours. Short-range models end at their published horizon. Charts cover snowfall, liquid precipitation, temperature, wind and cloud cover.
 - **Observations and roads** show the station’s 24-hour snow-board reading, total snow depth and air temperature when available. Each measurement carries its own observation time. Road reports identify their update time when the provider supplies one.
 

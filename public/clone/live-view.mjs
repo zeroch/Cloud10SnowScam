@@ -2,7 +2,7 @@ import { displayLanguage, t, modelCountLabel, convertWeather, depthNumber, depth
 import { RESORT, MORNING_RESORTS, getResort, snowLevelBands, stationUrl } from '/lib/config.mjs';
 import { HOUR, formatDate, formatTime, localParts, isPacificWeekend } from '/lib/time.mjs';
 import { finite, stationSummary, summarizeSnowLevel } from '/lib/conditions.mjs';
-import { METRICS, forecastRange, createSnowfallBlend, SNOW_BLEND, forecastPeriods, forecastBins, intervalTotal, tomorrowForecast, horizonForecast, fifteenDayForecast, personalSnowQuality, snowAmount, snowRange, comparisonSeries } from '/lib/forecast.mjs';
+import { METRICS, forecastRange, createSnowfallBlend, SNOW_BLEND, forecastPeriods, forecastBins, intervalTotal, tomorrowForecast, horizonForecast, fifteenDayForecast, hourlySnowForecast, personalSnowQuality, snowAmount, snowRange, comparisonSeries } from '/lib/forecast.mjs';
 
 export const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const timestamp = value => finite(value) ? t('{0} {1} PT', formatDate(value), formatTime(value)) : t('Unavailable');
@@ -154,6 +154,69 @@ export function extendedOutlook(data, state) {
     <p class="mountain-footnote">${t('Daily and five-day forecasts add up the hourly blend, then round up to whole {1}. Counts include every contributing model. Ranges use models that cover the full period. Today shows remaining full hours only{0}.', days[0].ending ? t(' (no full hours remain)') : '', depthUnitName())}</p>
     <details id="extended-blend-method" class="forecast-context live-preserve-details"><summary>${t('How snowfall is blended')}</summary><p>${snowBlendMethod()}</p></details>
     ${forecastStatus(data)}
+  </article>`;
+}
+
+function hourlyDepth(inches) {
+  if (!finite(inches)) return '—';
+  const value = convertWeather(inches, 'in');
+  return value > 0 && value < 0.01 ? '&lt;0.01' : value.toFixed(2);
+}
+
+export function hourlySnowCard(data, state) {
+  const { start, hours, totalIn, days, previous, next } = hourlySnowForecast(data, state.now, state.hourlyStart);
+  const resort = resortFor(data);
+  const point = t('{0}, {1} ft', t(resort.pointLabel), resort.elevationFt.toLocaleString(displayLanguage));
+  const unit = weatherUnit('in');
+  const hourName = (time, zone) => formatTime(time, { minute: undefined, timeZoneName: zone }).replace(/AM|PM/g, part => part.toLowerCase());
+  const labels = hours.map(hour => hourName(hour.start));
+  // On the fall clock change the two 1 am columns need their zone abbreviations.
+  const hourLabels = labels.map((label, i) => labels.indexOf(label) === labels.lastIndexOf(label) ? label : hourName(hours[i].start, 'short'));
+  const maxSnow = Math.max(0, ...hours.map(hour => hour.snowIn ?? 0));
+  const covered = hours.filter(hour => finite(hour.snowIn)).length;
+  const daysMarkup = days.map(day => {
+    const weekday = formatDate(day.date, { month: undefined, day: undefined });
+    return `<button type="button" id="hourly-day-${day.date}" data-hourly-start="${day.start}" aria-pressed="${day.selected}" aria-label="${escape(formatDate(day.date))}">${weekday} ${localParts(day.date).day}</button>`;
+  }).join('');
+  function step(direction, target, label) {
+    return `<button type="button" id="hourly-${direction}" class="hourly-step" aria-label="${label}" ${target === null ? 'disabled' : `data-hourly-start="${target}"`}><span class="hourly-arrow" aria-hidden="true"></span><span class="hourly-long-step">${t('12 hours')}</span><span class="hourly-short-step">${t('12h')}</span></button>`;
+  }
+  const headings = hours.map((hour, i) => {
+    const midnight = i > 0 && localParts(hour.start).hour === 0;
+    return `<th scope="col" title="${escape(timestamp(hour.start))}">${hourLabels[i]}${midnight ? `<small>${formatDate(hour.start, { month: undefined, day: undefined })}</small>` : ''}</th>`;
+  }).join('');
+  function row(label, units, cell, className = '') {
+    return `<tr class="${className}"><th scope="row">${label} <small>${units}</small></th>${hours.map(hour => `<td>${cell(hour)}</td>`).join('')}</tr>`;
+  }
+  const bars = row(t('New snow'), unit, hour => {
+    const height = maxSnow && hour.snowIn > 0 ? hour.snowIn / maxSnow * 100 : 0;
+    return `<div class="hourly-bar-track"><div class="hourly-bar" style="height:${height}%"><span>${hourlyDepth(hour.snowIn)}</span></div></div>`;
+  }, 'hourly-bars');
+  return `<article class="hourly-snow" aria-labelledby="hourly-heading">
+    <header class="hourly-heading"><div><h2 id="hourly-heading">${t('Hourly snow accumulation')}</h2>
+      <p>${escape(t(resort.name))} · ${escape(point)} · ${formatDate(start)}</p></div>
+      <div class="hourly-total"><strong>${hourlyDepth(totalIn)}${finite(totalIn) ? ` <small>${unit}</small>` : ''}</strong><span>${t('12-hour total')}</span></div>
+    </header>
+    <div class="hourly-nav">
+      ${step('previous', previous, t('Previous 12 hours'))}
+      <div class="hourly-days" role="group" aria-label="${t('Choose forecast day')}">${daysMarkup}</div>
+      ${step('next', next, t('Next 12 hours'))}
+    </div>
+    <div class="hourly-scroll" id="hourly-table-scroll" data-live-scroll="hourly-${start}" role="region" tabindex="0" aria-label="${t('Hourly forecast table, scroll for later hours')}">
+      <table><caption class="cloud-sr-only">${t('Snowfall for each hour starting at the time shown, Pacific time')}</caption>
+        <colgroup><col class="hourly-label-column"><col span="12"></colgroup>
+        <thead><tr><th scope="col">${t('Hour (PT)')}</th>${headings}</tr></thead>
+        <tbody>${bars}
+          ${row(t('Total since {0}', hourLabels[0].replaceAll(' ', '\u00a0')), unit, hour => hourlyDepth(hour.totalIn), 'hourly-running')}
+          ${row(t('Liquid precip.'), unit, hour => hourlyDepth(hour.precipIn))}
+          ${row(t('Snow level'), t('ft'), hour => finite(hour.snowLevelFt) ? (Math.round(hour.snowLevelFt / 100) * 100).toLocaleString(displayLanguage) : '—')}
+          ${row(t('Temperature'), weatherUnit('°F'), hour => finite(hour.temperatureF) ? Math.round(convertWeather(hour.temperatureF, '°F')) : '—')}
+        </tbody></table>
+    </div>
+    <footer>${forecastStatus(data)}
+      ${covered < hours.length ? `<p>${t('Snowfall covers {0} of 12 hours. Totals need every hour in the interval.', covered)}</p>` : ''}
+      ${sourceUsable(data, 'nws') ? '' : snowLevelStatus(data)}
+    </footer>
   </article>`;
 }
 
