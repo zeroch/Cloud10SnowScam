@@ -3,6 +3,7 @@ import { horizonForecast } from './forecast.mjs';
 import { ageSnapshot } from './display.mjs';
 import { createDashboardClient } from './dashboard-client.mjs';
 
+const FULL_BAR_INCHES = 10;
 const empty = resort => ({ resort, models: [], sources: [], snowLevels: [], stations: [] });
 
 // Use one clock and one Pacific morning for every resort. These are the same
@@ -22,12 +23,12 @@ export function buildResortComparison(entries, now, { days = 1, nightChoice } = 
     const night = horizonForecast(data, now, horizon).nights[index];
     const params = new URLSearchParams({ night: selected.nightDate, compareDays: String(days), compareNight: selected.nightDate });
     if (index > 0) params.set('days', String(days));
+    const wholeInches = Math.ceil(night.estimate.blendedIn ?? 0);
     return { resort, night, loading: !!entry.loading, failed: !!entry.failed,
+      fraction: Math.min(wholeInches / FULL_BAR_INCHES, 1),
       href: `/location/${resort.id}/snow-summary?${params}#${detailSection}` };
   });
-  const maximum = Math.max(1, ...rows.map(r => r.night.estimate.blendedIn ?? 0));
-  return { now, days, nights, selected, maximum,
-    rows: rows.map(row => ({ ...row, fraction: (row.night.estimate.blendedIn ?? 0) / maximum })) };
+  return { now, days, nights, selected, maximum: FULL_BAR_INCHES, rows };
 }
 
 // Dashboard GETs read the NAS cache. Individual completion keeps a slow/failed
