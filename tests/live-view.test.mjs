@@ -46,6 +46,21 @@ test('hourly card groups dates at local midnight, including both daylight-saving
   }
 });
 
+test('hourly snow-level cells and tooltips round to 100 ft while colors use the source level', () => {
+  // 868.68 meters is exactly 2,850 ft in the NWS feed.
+  const feet = [3287, 2768, 2801, 2849.75, 868.68 * (1 / 0.3048), 5100, 5101, 0];
+  const snowLevels = feet.map((feet, i) => ({ start: now + i * H, end: now + (i + 1) * H, feet }));
+  const html = renderHourlyForecast({ resort: RESORT, models: [], snowLevels }, { now });
+  const cells = [...html.matchAll(/<td[^>]*data-level-band="([^"]+)" aria-label="([^"]+)" title="([^"]+)">([^<]+)<\/td>/g)];
+  assert.deepEqual(cells.slice(0, 9).map(m => [m[1], m[4]]), [
+    ['neutral', '3,300'], ['blue', '2,800'], ['neutral', '2,800'], ['neutral', '2,800'],
+    ['neutral', '2,900'], ['purple', '5,100'], ['green', '5,100'], ['blue', '0'], ['missing', '—'],
+  ]);
+  assert.equal(cells[0][2], '3,300 ft, 1,500 ft below Brooks');
+  assert.equal(cells[0][3], cells[0][2]);
+  assert.equal(cells[8][2], 'Snow level unavailable');
+});
+
 test('hourly card localizes snowfall and gives each weather glyph a visible key', ctx => {
   ctx.after(() => { setDisplayUnits({}); setDisplayLanguage('en'); });
   setDisplayUnits({ depth: 'cm' });

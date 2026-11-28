@@ -80,7 +80,7 @@ export function renderHourlyForecast(data, state) {
     `<span>${weatherIcon(condition, true)}${t(conditions[condition][1])}</span>`).join('');
   const levelKey = [
     ['blue', t('Blue ≤{0}', number(bands.blueMax))],
-    ['neutral', t('Neutral {0}–{1}', number(bands.blueMax + 1), number(bands.purpleMin - 1))],
+    ['neutral', t('Neutral between {0} and {1}', number(bands.blueMax), number(bands.purpleMin))],
     ['purple', t('Purple {0}–{1}', number(bands.purpleMin), number(bands.purpleMax))],
     ['green', t('Green >{0}', number(bands.purpleMax))],
   ].map(([band, label]) => `<span data-level-band="${band}"><i aria-hidden="true"></i>${label}</span>`).join('');
@@ -114,8 +114,8 @@ export function renderHourlyForecast(data, state) {
         <button type="button" id="hourly-earlier" aria-controls="hourly-grid" aria-label="${t('Previous six hours')}" disabled>←</button>
         <span role="status" class="hourly-position">${positionLabel(0, hours.length)}</span>
         <button type="button" id="hourly-later" aria-controls="hourly-grid" aria-label="${t('Next six hours')}">→</button>
-      </div><small id="hourly-source">${sourceLabel('forecast', 'ECMWF')} · ${t('Snow level from {0}', sourceLabel('nws', 'NWS'))}${intervalHours ? ' · ' + t('{0}-hour intervals', intervalHours) : ''}</small></div>
-      <div class="hourly-key"><strong>${t('Snow level')} (${t('ft')}) · ${point} ${number(data.resort.elevationFt)}</strong>${levelKey}</div>
+      </div><small id="hourly-source">${sourceLabel('forecast', 'ECMWF')} · ${t('Snow level from {0}, rounded to 100 ft', sourceLabel('nws', 'NWS'))}${intervalHours ? ' · ' + t('{0}-hour intervals', intervalHours) : ''}</small></div>
+      <div class="hourly-key"><strong>${t('Bands before rounding')} (${t('ft')}) · ${point} ${number(data.resort.elevationFt)}</strong>${levelKey}</div>
       <div class="hourly-key"><strong>${t('Icon key')}</strong>${weatherKey}</div>
     </div>
   </details>`;

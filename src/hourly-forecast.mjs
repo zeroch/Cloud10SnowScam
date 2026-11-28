@@ -41,9 +41,10 @@ function hourlyWeather(snow, precip, cloud, temperature, time, resort) {
 
 function levelBand(feet, bands) {
   if (feet === null) return 'missing';
-  if (feet <= bands.blueMax) return 'blue';
-  if (feet < bands.purpleMin) return 'neutral';
-  return feet <= bands.purpleMax ? 'purple' : 'green';
+  const wholeFeet = Math.round(feet);
+  if (wholeFeet <= bands.blueMax) return 'blue';
+  if (wholeFeet < bands.purpleMin) return 'neutral';
+  return wholeFeet <= bands.purpleMax ? 'purple' : 'green';
 }
 
 export function hourlyForecast(data, now) {
@@ -63,9 +64,10 @@ export function hourlyForecast(data, now) {
     const cloudPct = instant?.cloudPct <= 100 ? nonnegative(instant.cloudPct) : null;
     const level = intervals.find(period => period.start <= time && period.end >= time + HOUR);
     const feet = nonnegative(level?.feet);
-    const snowLevelFt = feet === null ? null : Math.round(feet);
+    // Drop meter-to-foot conversion noise before rounding a 50-ft midpoint.
+    const snowLevelFt = feet === null ? null : Math.round(Number(feet.toPrecision(15)) / 100) * 100;
     return {
-      time, snowIn, cloudPct, snowLevelFt, levelBand: levelBand(snowLevelFt, bands),
+      time, snowIn, cloudPct, snowLevelFt, levelBand: levelBand(feet, bands),
       windMph: nonnegative(instant?.windMph),
       weather: hourlyWeather(snowIn, nonnegative(ending?.precipIn), cloudPct, instant?.temperatureF, time, data.resort),
     };
