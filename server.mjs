@@ -19,6 +19,7 @@ const files = new Map([
   ['/lib/conditions.mjs', ['src/conditions.mjs', 'text/javascript']], ['/lib/time.mjs', ['src/time.mjs', 'text/javascript']],
   ['/lib/display.mjs', ['src/display.mjs', 'text/javascript']], ['/lib/advice.mjs', ['src/advice.mjs', 'text/javascript']],
   ['/lib/forecast.mjs', ['src/forecast.mjs', 'text/javascript']],
+  ['/lib/hourly-forecast.mjs', ['src/hourly-forecast.mjs', 'text/javascript']],
   ['/lib/dashboard-client.mjs', ['src/dashboard-client.mjs', 'text/javascript']],
   ['/lib/provider-core.mjs', ['src/provider-core.mjs', 'text/javascript']],
   ['/lib/config.mjs', ['src/config.mjs', 'text/javascript']],

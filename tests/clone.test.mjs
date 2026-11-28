@@ -52,7 +52,12 @@ test('resort detail pages load live forecast slots without captured forecast val
     const html = await (await fetch(base + path)).text();
     assert.match(html, /data-live-slot="summary"/);
     assert.doesNotMatch(html, /clone-range-preview|Captured daily snowfall|All Models \(last 3 runs\)/);
-    assert.doesNotMatch(html, /data-live-slot="hourly-forecast"|href="#live-hourly"|Hourly Forecast/);
+    if (path.startsWith('/location/')) {
+      assert.match(html, /id="live-extended"[\s\S]*data-live-slot="hourly-forecast"[\s\S]*id="live-conditions"/);
+      assert.match(html, /href="#live-hourly"/);
+    } else {
+      assert.doesNotMatch(html, /data-live-slot="hourly-forecast"/);
+    }
     assert.doesNotMatch(html, /Updated <strong>49 minutes ago|OpenSnow Forecast System using/);
     assert.match(html, /id="live-models"/);
     assert.doesNotMatch(html, /id="live-night-timing"|data-live-slot="night-timing"|href="#live-night-timing"/);
