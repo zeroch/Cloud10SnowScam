@@ -6,6 +6,7 @@ import { createDashboardClient } from '/lib/dashboard-client.mjs';
 import { RESORT, getResort } from '/lib/config.mjs';
 import { comparisonReturnUrl, forecastDetailUrl } from '/lib/navigation.mjs';
 import * as view from './live-view.mjs';
+import { renderHourlyForecast, bindHourlyForecast } from './hourly-forecast.mjs';
 import { drawComparison, metricValue } from './live-chart.mjs';
 
 const $ = selector => document.querySelector(selector);
@@ -38,7 +39,8 @@ redirectRetiredForecastAnchor();
 const state = { page: document.body.dataset.page, horizon: readHorizon(), nightChoice: readNightChoice(), days: readComparisonDays() || readHorizon() || ([1, 3, 5].includes(saved.days) ? saved.days : 3), metric: METRICS[saved.metric] ? saved.metric : 'snow', ids: [], excluded: Array.isArray(saved.excluded) ? saved.excluded : [], precipHours: saved.precipHours === 3 ? 3 : 6, precipField: saved.precipField === 'precipIn' ? 'precipIn' : 'snowIn', precipTotals: saved.precipTotals === true, precipPeriod: 'all', section: 'live-daily', index: 0, snapshot: null, loading: false, failure: false };
 document.body.dataset.forecastView = state.page !== 'stevens' && state.horizon ? String(state.horizon) : 'tomorrow';
 let active = false, chart, setCrosshair, resizeTimer, initialSectionOpened = false;
-const renderers = { summary: view.summary, 'extended-outlook': view.extendedOutlook, 'morning-conditions': view.morningConditions, 'comparison-controls': view.comparisonControls, 'daily-forecast': view.daily, 'forecast-range': view.comparison, 'precipitation-by-model': view.precipitation, outlook: view.outlook, stations: view.stations };
+const hourlyPosition = { open: true, time: null };
+const renderers = { 'hourly-forecast': renderHourlyForecast, summary: view.summary, 'extended-outlook': view.extendedOutlook, 'morning-conditions': view.morningConditions, 'comparison-controls': view.comparisonControls, 'daily-forecast': view.daily, 'forecast-range': view.comparison, 'precipitation-by-model': view.precipitation, outlook: view.outlook, stations: view.stations };
 let renderVersion = 0, sectionFrame;
 
 function layoutContext() {
@@ -59,7 +61,7 @@ function updateSectionNavigation() {
   const sectionNav = $('.cloud-evidence-nav'), sectionNavBox = sectionNav?.getBoundingClientRect();
   const navHeight = sectionNavBox && getComputedStyle(sectionNav).position === 'sticky' && sectionNavBox.top <= header + 1 ? sectionNavBox.height : 0;
   const offset = header + navHeight + (toolbar && getComputedStyle(toolbarElement).position === 'sticky' && toolbar.top <= header + navHeight + 1 && toolbar.bottom > header ? toolbar.height : 0);
-  const sections = ['live-overnight','live-extended','live-conditions','live-daily','live-models','live-precip'];
+  const sections = ['live-overnight','live-extended','live-hourly','live-conditions','live-daily','live-models','live-precip'];
   const visible = sections.map(id => {
     const box = document.getElementById(id)?.getBoundingClientRect();
     return { id, height: box ? Math.max(0,Math.min(innerHeight,box.bottom)-Math.max(offset,box.top)) : 0 };
@@ -154,6 +156,8 @@ function render(trigger = null) {
       if (state.failure) slot.insertAdjacentHTML('afterbegin', `<p class="live-warning" role="status">${t('Refresh failed. Showing the last response with its source timestamps.')}</p>`);
     }
   });
+  const hourlyCard = $('#hourly-card');
+  if (hourlyCard) bindHourlyForecast(hourlyCard, hourlyPosition);
   // Preserve the comparison return context for normal and modified link clicks.
   $$('a[data-forecast-detail]').forEach(link => {
     link.href = forecastDetailUrl(location.href, link.href, resortId).href;
@@ -211,7 +215,7 @@ async function refresh(force = false) {
       initialSectionOpened = true;
       const section = location.hash.slice(1);
       if (section === 'horizon-details') openHorizonDetails();
-      else if (['live-overnight','live-conditions','live-extended','live-daily','live-models','live-precip'].includes(section)) openSection(section);
+      else if (['live-overnight','live-conditions','live-extended','live-hourly','live-daily','live-models','live-precip'].includes(section)) openSection(section);
     }
   }
 }
@@ -324,7 +328,7 @@ export function startLive() {
     if (state.horizon || readComparisonDays()) state.days = readComparisonDays() || state.horizon;
     render();
     if (location.hash === '#horizon-details') openHorizonDetails();
-    else if (['#live-overnight','#live-conditions','#live-extended','#live-daily','#live-models','#live-precip'].includes(location.hash)) openSection(location.hash.slice(1));
+    else if (['#live-overnight','#live-conditions','#live-extended','#live-hourly','#live-daily','#live-models','#live-precip'].includes(location.hash)) openSection(location.hash.slice(1));
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); refresh(); } });
   setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60_000);

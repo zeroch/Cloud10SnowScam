@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { forecastWindow } from '../src/forecast.mjs';
-import { setDisplayUnits } from '../src/i18n.mjs';
+import { setDisplayLanguage, setDisplayUnits } from '../src/i18n.mjs';
+import chinese from '../public/clone/zh-CN.mjs';
+import { RESORT } from '../src/config.mjs';
 import { overnightFixture, EXAMPLE_NOW } from './fixtures/overnight.mjs';
 import { horizonFixture, HORIZON_NOW } from './fixtures/horizon.mjs';
 
@@ -11,10 +13,14 @@ const source = (await readFile(new URL('../public/clone/live-view.mjs', import.m
   .replaceAll(/from '\/lib\/([^']+)'/g, (_, file) => `from '${new URL('../src/' + file, import.meta.url).href}'`);
 const viewUrl = 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 const view = await import(viewUrl);
-const chartSource = (await readFile(new URL('../public/clone/live-chart.mjs', import.meta.url), 'utf8'))
-  .replaceAll(/from '\/lib\/([^']+)'/g, (_, file) => `from '${new URL('../src/' + file, import.meta.url).href}'`)
-  .replace("from './live-view.mjs'", `from '${viewUrl}'`);
-const { drawComparison, metricValue } = await import('data:text/javascript;base64,' + Buffer.from(chartSource).toString('base64'));
+async function importViewModule(name) {
+  const source = (await readFile(new URL(`../public/clone/${name}.mjs`, import.meta.url), 'utf8'))
+    .replaceAll(/from '\/lib\/([^']+)'/g, (_, file) => `from '${new URL('../src/' + file, import.meta.url).href}'`)
+    .replace("from './live-view.mjs'", `from '${viewUrl}'`);
+  return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+}
+const { drawComparison, metricValue } = await importViewModule('live-chart');
+const { renderHourlyForecast } = await importViewModule('hourly-forecast');
 const H = 3600000, now = Date.parse('2026-01-05T00:00Z');
 const state = { ...forecastWindow(now, 3), days: 3, metric: 'snow', ids: ['a'], now, index: 0 };
 const data = () => ({
@@ -22,6 +28,50 @@ const data = () => ({
   models: [{ id: 'a', label: 'Model A', color: '#3498db', description: 'Test model', points: Array.from({ length: 121 }, (_, i) => ({ time: now + i * H, snowIn: 0.5, precipIn: 0.05, temperatureF: 25, cloudPct: 90 })) }],
   sources: [{ id: 'forecast', name: 'Forecast', status: 'fresh', fetchedAt: now }, { id: 'nws', name: 'NWS', status: 'stale', fetchedAt: now - 24 * H }],
   snowLevels: [{ start: now, end: now + 121 * H, feet: 2000 }], stations: [],
+});
+
+test('hourly card groups dates at local midnight, including both daylight-saving changes', () => {
+  for (const [clock, expected] of [
+    ['2026-11-28T03:04Z', [4,24,8]], ['2026-11-01T05:40Z', [1,25,10]], ['2026-03-08T06:40Z', [1,23,12]],
+  ]) {
+    const html = renderHourlyForecast({ resort: RESORT, models: [], sources: [] }, { now: Date.parse(clock) });
+    assert.deepEqual([...html.matchAll(/scope="colgroup" colspan="(\d+)"/g)].map(m => Number(m[1])), expected);
+    assert.equal(new Set([...html.matchAll(/<time datetime="([^"]+)"/g)].map(m => m[1])).size, 36);
+    assert.match(html, /class="hourly-total"><strong>—<\/strong>/);
+    assert.equal(html.match(/data-level-band="missing"/g).length, 36);
+    if (expected[1] === 25) {
+      assert.match(html, /1 AM PDT/);
+      assert.match(html, /1 AM PST/);
+    }
+  }
+});
+
+test('hourly card localizes snowfall and gives each weather glyph a visible key', ctx => {
+  ctx.after(() => { setDisplayUnits({}); setDisplayLanguage('en'); });
+  setDisplayUnits({ depth: 'cm' });
+  setDisplayLanguage('zh-CN', chinese);
+  const points = Array.from({ length: 37 }, (_, i) => ({
+    time: now + i * H, snowIn: i === 1 ? 1 : 0, precipIn: 0.1, temperatureF: 29,
+  }));
+  const html = renderHourlyForecast({ resort: RESORT, models: [{ id: 'ecmwf_ifs025', points }] }, { now, ids: [] });
+  assert.match(html, /逐小时预报/);
+  assert.match(html, /class="hourly-total"><strong>2.54 厘米/);
+  assert.match(html, /第 1–6 小时，共 36 小时/);
+  const [grid, key] = html.split('<div class="hourly-footer">');
+  assert.equal(grid.match(/role="img"/g).length, 36);
+  for (const [, name] of grid.matchAll(/hourly-weather\.svg#([^"]+)"/g)) {
+    assert.ok(key.includes('hourly-weather.svg#' + name + '"'), name);
+  }
+  assert.match(key, /降水类型不确定/);
+  assert.doesNotMatch(grid, /<select|Liquid precip/);
+});
+
+test('folded snowfall flags a stale ECMWF snapshot independently of NWS snow levels', () => {
+  const data = { resort: RESORT, models: [], sources: [{ id: 'forecast', status: 'cached' }, { id: 'nws', status: 'stale' }] };
+  const summary = () => renderHourlyForecast(data, { now }).split('</summary>')[0];
+  assert.doesNotMatch(summary(), /stale forecast/);
+  data.sources[0].status = 'stale';
+  assert.match(summary(), /36-hour snowfall · stale forecast/);
 });
 
 test('rounded ranges do not imply a spread smaller than displayed precision', () => {
