@@ -9,7 +9,7 @@ import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
-const modules = ['conditions', 'time', 'display', 'advice', 'forecast', 'dashboard-client', 'config', 'provider-core'];
+const modules = ['conditions', 'time', 'display', 'advice', 'forecast', 'hourly-forecast', 'dashboard-client', 'config', 'provider-core'];
 const asset = 'public/nested/snow notes 雪.txt';
 const planned = 'public/nested/planned.txt';
 const stagedEmpty = 'public/staged-empty.txt';

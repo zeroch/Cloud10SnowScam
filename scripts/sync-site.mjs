@@ -9,7 +9,7 @@ const pages = new Map([
   ['public/clone/stevens.html', 'content/stevens.html'],
   ['public/index.html', 'content/desk.html'],
 ]);
-const browserModules = ['conditions', 'time', 'display', 'advice', 'forecast', 'dashboard-client', 'config', 'provider-core'];
+const browserModules = ['conditions', 'time', 'display', 'advice', 'forecast', 'hourly-forecast', 'dashboard-client', 'config', 'provider-core'];
 const fixture = 'tests/fixtures/forecast.json';
 const clientTest = 'tests/dashboard-client.test.mjs';
 const inputs = await trackedFiles(root, {
