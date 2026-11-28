@@ -11,7 +11,7 @@ function readUrl() {
   const params = new URL(location.href).searchParams;
   const view = params.get('view');
   const mode = view === '15d' ? '15d' : 'am';
-  const days = mode === '15d' ? Number(params.get('days')) : view === 'outlook' ? 5 : view === '3days' ? 3 : 1;
+  const days = view === 'outlook' ? 5 : view === '3days' ? 3 : 1;
   options = { mode, days, nightChoice: params.get('night'), stage: comparisonStage(params.get('stage')) };
 }
 
@@ -105,28 +105,18 @@ root.addEventListener('click', event => {
   if (button.hasAttribute('data-timeline-day')) { changeDayDetail(button); return; }
   const url = new URL(location.href);
   const params = url.searchParams;
-  if (button.dataset.compareView) {
-    const view = button.dataset.compareView;
-    if (view === options.mode) return;
+  const view = button.dataset.compareView;
+  if (view) {
+    if (view === options.mode && options.days === 1) return;
     selectedDay = null;
-    if (view === '15d') {
-      params.set('view', '15d');
-      if (options.days > 1) params.set('days', String(options.days));
-    } else {
-      params.delete('stage');
-      if (options.days === 3 || options.days === 5) params.set('view', options.days === 3 ? '3days' : 'outlook');
-      else params.delete('view');
-    }
-  } else if (button.dataset.compareDays) {
-    const days = Number(button.dataset.compareDays);
-    if (days === 1) { params.delete('view'); params.delete('days'); }
-    else { params.set('view', days === 3 ? '3days' : 'outlook'); params.set('days', String(days)); }
-    params.delete('night');
+    for (const key of ['view', 'days', 'night', 'stage']) params.delete(key);
+    if (view === '15d') params.set('view', '15d');
   } else if (button.dataset.compareNight) params.set('night', button.dataset.compareNight);
   else return;
   url.hash = 'live-overnight';
   if (url.href !== location.href) history.pushState(null, '', url);
   readUrl(); render();
+  if (view) document.getElementById(button.id).scrollIntoView({ block: 'nearest' });
 });
 const menu = document.getElementById('compare-menu'), links = document.getElementById('compare-menu-links');
 menu.addEventListener('click', () => { const open = menu.getAttribute('aria-expanded') !== 'true'; menu.setAttribute('aria-expanded', String(open)); links.hidden = !open; });

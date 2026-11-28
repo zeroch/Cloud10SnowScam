@@ -67,23 +67,18 @@ main { padding-bottom: 36px; scroll-margin-top: 8px; }
   font: 600 clamp(1.375rem, 2.2vw, 1.875rem)/1.17 var(--club-display);
   letter-spacing: -.035em;
 }
-.compare-window, .compare-control-label, .compare-metadata, .compare-notice {
+.compare-window, .compare-metadata, .compare-notice {
   color: var(--club-secondary); font-size: .8125rem; line-height: 1.45;
 }
 .compare-window { margin-top: 4px; }
-.compare-controls { display: grid; gap: 5px; }
-.compare-control-label { font-size: .75rem; font-weight: 600; }
-.compare-horizons, .compare-dates { display: flex; flex-wrap: wrap; gap: 2px; }
-.compare-horizons { padding: 3px; background: var(--club-wash); border: 1px solid var(--club-rule); border-radius: 5px; }
-.compare-horizons button, .compare-dates button {
-  flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 6px 14px;
-  background: transparent; border: 0; border-radius: 3px;
-  color: var(--club-secondary); font-size: .875rem; font-weight: 600;
+.compare-controls { display: grid; gap: 5px; justify-items: start; }
+.compare-dates { display: flex; flex-wrap: wrap; gap: 2px; }
+.compare-dates button {
+  flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 6px 8px;
+  background: transparent; border: 0; border-bottom: 2px solid transparent;
+  color: var(--club-secondary); font-size: .8125rem; font-weight: 600;
 }
-.compare-horizons button:hover, .compare-dates button:hover { color: var(--club-seal); }
-.compare-horizons [aria-current] { background: var(--club-ink); color: var(--club-sheet); }
-.compare-horizons [aria-current]:hover { color: white; }
-.compare-dates button { padding-inline: 8px; font-size: .8125rem; border-bottom: 2px solid transparent; border-radius: 0; }
+.compare-dates button:hover { color: var(--club-seal); }
 .compare-dates [aria-pressed="true"] { color: var(--club-seal); border-bottom-color: currentColor; }
 .compare-notice { margin-bottom: 8px; }
 
@@ -167,8 +162,6 @@ details[open] .compare-chevron { transform: rotate(-90deg); }
   .compare-title > p { max-inline-size: min(28ch, 64%); font-size: .8125rem; text-wrap: balance; }
   .compare-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 13px; padding: 12px 0 10px; }
   .compare-controls { min-width: 0; }
-  .compare-control-label { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
-  .compare-horizons button { flex: 1 1 5em; padding-inline: 6px; }
   .compare-dates button { flex: 1 1 3em; padding-inline: 2px; }
   .compare-period-line { order: 0; }
   .compare-window { margin-top: 2px; }
@@ -205,7 +198,6 @@ details[open] .compare-chevron { transform: rotate(-90deg); }
   font-size: .875rem; font-weight: 400;
 }
 .compare-view-switch button[aria-pressed="true"] { color: white; background: #3f6d90; }
-.compare-title .compare-view-switch { margin-block-start: 10px; }
 
 body[data-compare-mode="15d"] { --club-width: 1440px; --club-gutter: clamp(11px, 2vw, 30px); }
 body[data-compare-mode="15d"] .compare-topbar nav { min-height: 57px; }

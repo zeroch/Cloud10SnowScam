@@ -1,9 +1,7 @@
 // Simplified Chinese UI messages. Numbered placeholders retain their original values.
 export default {
   "Comparison view": "对比视图",
-  "Morning comparison": "清晨对比",
-  "AM": "清晨",
-  "15d": "15天",
+  "Overview": "概览",
   "24h": "24小时",
   "PT": "太平洋时间",
   "Remaining today": "今日剩余降雪",
@@ -97,9 +95,6 @@ export default {
   "{0} · {1} ft": "{0} · 海拔 {1} 英尺",
   "Forecasts are loading or unavailable": "预报正在加载或暂不可用",
   "Oldest forecast collected {0} {1} PT": "最早采集的预报：{0} {1}（太平洋时间）",
-  "Next morning": "次日清晨",
-  "3 mornings": "未来 3 个清晨",
-  "5 mornings": "未来 5 个清晨",
   "Morning to compare": "选择要比较的清晨",
   "Left by 6 am": "至早上 6 点的剩余降雪",
   "Final hour": "最后一小时",
@@ -119,7 +114,6 @@ export default {
   "Check saved forecasts": "检查预报更新",
   "Compare resorts": "雪场对比",
   "Overnight snowfall in the Washington Cascades": "华盛顿州喀斯喀特山脉夜间降雪预报",
-  "Choose a forecast window": "选择预报时段",
   "Forecast horizon": "预报时段",
   "Blended snowfall · estimated quality": "加权降雪量 · 预估雪质",
   "Full bar at {0}": "满格为 {0}",

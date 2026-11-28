@@ -72,11 +72,11 @@ export function renderComparison(board, selectedDay) {
   return `<header class="compare-title club-landscape">
     <h1 id="comparison-heading">${t('Compare resorts')}</h1>
     <p>${t('Overnight snowfall in the Washington Cascades')}</p>
-    ${viewSwitch(false)}
   </header>
   <section class="compare-report" aria-labelledby="compare-period">
     <div class="compare-toolbar">
-    <div class="compare-controls"><p class="compare-control-label">${t('Choose a forecast window')}</p><nav class="compare-horizons" aria-label="${t('Forecast horizon')}">${[[1,t('Next morning')],[3,t('3 mornings')],[5,t('5 mornings')]].map(([d,label]) => `<button id="compare-horizon-${d}" data-compare-days="${d}"${d === days ? ' aria-current="page"' : ''}>${label}</button>`).join('')}</nav>
+    <div class="compare-controls">
+    ${viewSwitch(false)}
     ${days > 1 ? `<nav class="compare-dates" aria-label="${t('Morning to compare')}">${board.nights.map(date => `<button id="compare-date-${date.nightDate}" data-compare-night="${date.nightDate}" aria-label="${formatDate(date.end)}" aria-pressed="${date.nightDate === n.nightDate}">${morningLabel(date.end)}</button>`).join('')}</nav>` : ''}</div>
     <div class="compare-period-line"><h2 id="compare-period">${formatDate(n.end)} · ${remaining ? t('Left by 6 am') : ending ? t('Final hour') : t('Snow by 6 am')}</h2><p class="compare-window">${remaining ? t('{0}–6 am PT · {1} left', formatTime(n.start, { minute: undefined }).toLowerCase(), depthUnitName()) : t('6 pm–6 am PT · {0}', depthUnitName())}</p></div>
     </div>
@@ -98,8 +98,8 @@ export function renderComparison(board, selectedDay) {
 
 function viewSwitch(timeline) {
   return `<nav class="compare-view-switch" aria-label="${t('Comparison view')}">
-    <button id="compare-view-am" data-compare-view="am" aria-label="${t('Morning comparison')}" aria-pressed="${!timeline}">${t('AM')}</button>
-    <button id="compare-view-15d" data-compare-view="15d" aria-label="${t('15-day snowfall')}" aria-pressed="${timeline}">${t('15d')}</button>
+    <button type="button" id="compare-view-today" data-compare-view="am" aria-pressed="${!timeline}">${t('Today')}</button>
+    <button type="button" id="compare-view-overview" data-compare-view="15d" aria-pressed="${timeline}">${t('Overview')}</button>
   </nav>`;
 }
 

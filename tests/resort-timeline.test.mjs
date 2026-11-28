@@ -17,6 +17,18 @@ const view = await readFile(new URL('../public/clone/resort-comparison-view.mjs'
 const resolved = view.replaceAll(/from '\/lib\/([^']+)'/g, (_, file) => "from '" + new URL('../src/' + file, import.meta.url).href + "'");
 const { renderComparison } = await import('data:text/javascript;base64,' + Buffer.from(resolved).toString('base64'));
 
+test('Today and Overview replace the forecast window picker', () => {
+  const today = renderComparison(comparison.buildResortComparison(resortTimelineFixture(), NOW));
+  const overview = renderComparison(timeline());
+  const tags = html => [...html.matchAll(/<button[^>]*data-compare-view="[^"]+"[^>]*aria-pressed="(true|false)"[^>]*>([^<]+)<\/button>/g)]
+    .map(([, selected, label]) => [label, selected === 'true']);
+
+  assert.deepEqual(tags(today), [['Today', true], ['Overview', false]]);
+  assert.deepEqual(tags(overview), [['Today', false], ['Overview', true]]);
+  assert.match(today, /class="compare-toolbar">\s*<div class="compare-controls">\s*<nav class="compare-view-switch"/);
+  assert.doesNotMatch(today, /Choose a forecast window|data-compare-days=/);
+});
+
 test('each five-day subtotal uses the color with the most snowfall inches', () => {
   const { rows } = timeline();
   assert.deepEqual(rows.map(row => row.blocks.map(block => [block.blendedIn, block.category])), [
