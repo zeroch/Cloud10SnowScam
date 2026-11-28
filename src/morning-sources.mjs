@@ -1,7 +1,7 @@
 import { MORNING_RESORTS, stationUrl } from './config.mjs';
 import { finite } from './conditions.mjs';
 import { fetchText, parseNwac } from './provider-core.mjs';
-import { HOUR } from './time.mjs';
+import { COLLECTION_INTERVAL } from './time.mjs';
 
 const passNames = new Set(Object.values(MORNING_RESORTS).map(item => item.road.passName));
 const text = value => typeof value === 'string' ? value.trim().slice(0, 2000) : '';
@@ -43,12 +43,12 @@ export function createMorningSources(store, { fetchFn = fetch, now = Date.now, r
     const station = MORNING_RESORTS[resortId].station;
     const url = stationUrl(station);
     return [resortId, {
-      id: 'nwac', key: `morning-nwac-${station.stid}`, name: `NWAC · ${station.name}`, url, ttl: HOUR,
+      id: 'nwac', key: `morning-nwac-${station.stid}`, name: `NWAC · ${station.name}`, url,
       load: async timestamp => readStation(await fetchText(url, fetchFn, timestamp), station, timestamp),
     }];
   }));
   const roadJob = {
-    id: 'wsdot', key: 'morning-wsdot', name: 'WSDOT pass reports', url: 'https://wsdot.com/travel/real-time/mountainpasses', ttl: HOUR / 2,
+    id: 'wsdot', key: 'morning-wsdot', name: 'WSDOT pass reports', url: 'https://wsdot.com/travel/real-time/mountainpasses',
     load: async timestamp => parseRoadReports(JSON.parse(await fetchText(roadsUrl(), fetchFn, timestamp))),
   };
   const jobs = [...stationJobs.values(), roadJob];
@@ -57,7 +57,7 @@ export function createMorningSources(store, { fetchFn = fetch, now = Date.now, r
     const stationJob = stationJobs.get(resortId);
     if (!stationJob) throw new Error('Unknown resort');
     const config = MORNING_RESORTS[resortId];
-    const outcomes = [stationJob, roadJob].map(job => ({ job, result: store.read(job.key, job.ttl, { now: timestamp }) }));
+    const outcomes = [stationJob, roadJob].map(job => ({ job, result: store.read(job.key, COLLECTION_INTERVAL, { now: timestamp }) }));
     const [station, roads] = outcomes.map(({ result }) => result.data);
     const road = roads?.[config.road.passName];
     return {
@@ -71,13 +71,15 @@ export function createMorningSources(store, { fetchFn = fetch, now = Date.now, r
         road: road ? { ...road, url: config.road.url } : null,
         roadLink: config.road.url,
       },
-      sources: outcomes.map(({ job, result }) => ({ id: job.id, name: job.name, url: job.url, status: result.status, fetchedAt: result.fetchedAt, refreshAfterMs: job.ttl, error: result.error, snapshotId: result.snapshotId ?? null })),
+      sources: outcomes.map(({ job, result }) => ({ id: job.id, name: job.name, url: job.url, status: result.status, fetchedAt: result.fetchedAt, refreshAfterMs: COLLECTION_INTERVAL, error: result.error, snapshotId: result.snapshotId ?? null })),
     };
   }
 
   async function collect() {
     const timestamp = now();
-    return Promise.all(jobs.map(job => store.get(job.key, () => job.load(timestamp), job.ttl, { now: timestamp, provider: job.id })));
+    return Promise.all(jobs.map(job => store.get(job.key, () => job.load(timestamp), COLLECTION_INTERVAL, {
+      now: timestamp, provider: job.id, minAttemptIntervalMs: COLLECTION_INTERVAL,
+    })));
   }
   return { read, collect };
 }

@@ -58,6 +58,7 @@ test('mid-mountain collection never relabels a saved base-area forecast', async 
   assert.deepEqual(waiting.models, [], 'a base-area snapshot must not appear under the new elevation');
   assert.equal(waiting.sources.find(s => s.id === 'forecast').status, 'unavailable');
   assert.equal((await runtime.loadDashboard()).models[0].points[1].snowIn, 1, 'Stevens retains its existing cache');
+  state.now += 30 * 60_000;
   await runtime.collectOnce();
   const requested = state.urls.filter(url => url.includes('open-meteo')).map(url => new URL(url));
   assert.deepEqual(requested.map(url => Number(url.searchParams.get('elevation'))), [1706.88,1036.32,1310.64]);
@@ -86,7 +87,7 @@ test('scheduled collection isolates four resort forecasts and NWS grids across r
   const restarted = open();
   await restarted.collectOnce();
   assert.equal(state.urls.length, 12, 'restart must honor every saved due time');
-  state.now += H; state.fail = true;
+  state.now += 6 * H; state.fail = true;
   await restarted.collectOnce();
   const crystal = await restarted.loadDashboard({ resortId: 'crystalmountain' });
   assert.equal(crystal.sources.find(s => s.id === 'forecast').status, 'stale');

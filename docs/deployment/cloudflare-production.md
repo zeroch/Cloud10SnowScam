@@ -39,6 +39,8 @@ In the Worker’s **Settings → Domains & Routes**, enable **Version URLs**. An
 
 For a new installation, provision the Worker, D1, hostname and trigger once. Apply [the shared schema](../../deploy/cloudflare-pilot/schema.sql) followed by [the production schema](../../deploy/cloudflare-production/schema.sql). The example config includes the collector schedule. The separate [pilot configuration](../../deploy/cloudflare-pilot/wrangler.example.jsonc) describes the optional 24-hour measurement window.
 
+The production Worker records a D1 heartbeat on the hour. It collects upstream data from minute 22 through minute 34 at 00, 06, 12 and 18 UTC. The Worker enforces these windows for existing installations with more frequent triggers, so the six-hour cadence takes effect with the Worker release.
+
 ## Verify locally
 
 Use Node.js 22.23.3, Python 3 and the pinned tools in the deployment package. From the repository root run

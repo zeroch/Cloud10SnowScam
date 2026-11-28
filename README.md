@@ -27,7 +27,7 @@ Open the [resort comparison](http://127.0.0.1:4173/) or the [Stevens Pass foreca
 - **Detailed forecasts** compare ECMWF, GFS, ICON, GDPS and HRRR over 24, 72 or 120 hours. Short-range models end at their published horizon. Charts cover snowfall, liquid precipitation, temperature, wind and cloud cover.
 - **Observations and roads** show the station’s 24-hour snow-board reading, total snow depth and air temperature when available. Each measurement carries its own observation time. Road reports identify their update time when the provider supplies one.
 
-The local collector refreshes Open-Meteo forecasts and WSDOT reports every 30 minutes, and collects NWS snow levels and nearby NWAC stations hourly. Page views read the saved data. A failed collection preserves the last successful snapshot and its retrieval time.
+The collector refreshes Open-Meteo forecasts, NWS snow levels, WSDOT reports and nearby NWAC stations every six hours. Page views read the saved data. A failed collection preserves the last successful snapshot and its retrieval time.
 
 ## Tests and deployment
 

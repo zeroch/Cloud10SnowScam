@@ -1,14 +1,14 @@
 import { createSqliteCache } from './sqlite-cache.mjs';
 import { createDashboardLoader } from './provider-core.mjs';
 import { RESORT, RESORTS, resortCacheKey } from './config.mjs';
-import { HOUR } from './time.mjs';
+import { COLLECTION_INTERVAL } from './time.mjs';
 import { createMorningSources } from './morning-sources.mjs';
 
 export function createRuntime({ databasePath, resorts = RESORTS, fetchFn = fetch, now = Date.now, tickMs = 60_000, nwacEnabled = false, morningEnabled = false, log = () => {} } = {}) {
   if (!databasePath) throw new Error('A persistent database path is required');
   if (!Number.isFinite(tickMs) || tickMs < 10) throw new Error('Invalid collector interval');
   const store = createSqliteCache(databasePath, { clock: now });
-  const options = { nwacEnabled, fetchFn, validateForecast: true };
+  const options = { nwacEnabled, fetchFn, validateForecast: true, collectionIntervalMs: COLLECTION_INTERVAL };
   const morningSources = morningEnabled ? createMorningSources(store, { fetchFn, now, resortIds: resorts.map(resort => resort.id) }) : null;
   const collectors = new Map(resorts.map(resort => [resort.id, createDashboardLoader(store, { ...options, resort })]));
   // Deliberately discard the loader and force flag at the HTTP boundary.
@@ -60,15 +60,21 @@ export function createRuntime({ databasePath, resorts = RESORTS, fetchFn = fetch
     },
     health() {
       const timestamp = now();
-      const summarize = (key, ttl) => {
-        const { status, fetchedAt, nextAttemptAt, snapshotId, error } = store.read(key, ttl, { now: timestamp });
+      const summarize = key => {
+        const { status, fetchedAt, nextAttemptAt, snapshotId, error } = store.read(key, COLLECTION_INTERVAL, {
+          now: timestamp, minAttemptIntervalMs: COLLECTION_INTERVAL,
+        });
         return { status, fetchedAt, nextAttemptAt, snapshotId, error };
       };
+      const sourcesFor = resort => ({
+        forecast: summarize(resortCacheKey(resort, 'forecast')),
+        nws: summarize(resortCacheKey(resort, 'nws')),
+      });
       return {
         ok: !stopped && !lastError, application: 'Cloud10', version: '0.3.0', storage: 'sqlite', nwacEnabled,
         collector: { running: Boolean(timer), lastCycleAt, error: lastError, tickMs },
-        sources: { forecast: summarize(`${RESORT.id}-forecast-v2`, HOUR / 2), nws: summarize('nws', HOUR) },
-        resorts: Object.fromEntries(resorts.map(resort => [resort.id, { forecast: summarize(resortCacheKey(resort, 'forecast'), HOUR / 2), nws: summarize(resortCacheKey(resort, 'nws'), HOUR) }])),
+        sources: sourcesFor(RESORT),
+        resorts: Object.fromEntries(resorts.map(resort => [resort.id, sourcesFor(resort)])),
         usage: store.stats(timestamp),
       };
     },

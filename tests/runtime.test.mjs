@@ -72,10 +72,18 @@ test('scheduler collects without visitors and respects persisted due times after
   const restarted = open();
   await restarted.collectOnce();
   assert.equal(state.urls.filter(u => u.includes('open-meteo')).length, 1);
-  state.now += 30 * 60_000;
+  state.now += 6 * H - 1;
+  await restarted.collectOnce();
+  assert.equal(state.urls.length, 3, 'all upstream sources wait for the six-hour boundary');
+  const saved = (await restarted.loadDashboard()).sources.find(s => s.id === 'forecast');
+  assert.equal(saved.status, 'cached');
+  assert.equal(saved.refreshAfterMs, 6 * H);
+  assert.equal(saved.nextAttemptAt, INITIAL + 6 * H);
+  assert.equal(restarted.health().sources.forecast.status, 'cached');
+  state.now++;
   await restarted.collectOnce();
   assert.equal(state.urls.filter(u => u.includes('open-meteo')).length, 2);
-  assert.equal(state.urls.filter(u => u.includes('/gridpoints/')).length, 1);
+  assert.equal(state.urls.filter(u => u.includes('/gridpoints/')).length, 2);
   const snapshot = await restarted.loadDashboard();
   assert.equal(snapshot.sources.find(s => s.id === 'forecast').fetchedAt, state.now);
 });
@@ -83,7 +91,7 @@ test('scheduler collects without visitors and respects persisted due times after
 test('expired provider payload is rejected and the original snapshot remains stale', async t => {
   const { runtime, state } = await setup(t);
   await runtime.collectOnce();
-  state.now += H; state.bad = true;
+  state.now += 6 * H; state.bad = true;
   await runtime.collectOnce();
   const result = await runtime.loadDashboard();
   const source = result.sources.find(s => s.id === 'forecast');
@@ -91,6 +99,11 @@ test('expired provider payload is rejected and the original snapshot remains sta
   assert.equal(source.fetchedAt, INITIAL);
   assert.match(source.error, /coverage|expired/i);
   assert.equal(result.models[0].points[1].snowIn, 0.5);
+  assert.equal(source.nextAttemptAt, INITIAL + 12 * H);
+  const calls = state.urls.length;
+  state.now += H;
+  await runtime.collectOnce();
+  assert.equal(state.urls.length, calls, 'an invalid response does not cause an early retry');
 });
 
 test('disabled NWAC does not call or read its cache', async () => {
@@ -105,13 +118,13 @@ test('disabled NWAC does not call or read its cache', async () => {
 test('empty or old NWS grids preserve the last usable snow-level snapshot', async t => {
   const { runtime, state } = await setup(t);
   await runtime.collectOnce();
-  state.now += H; state.nwsEmpty = true;
+  state.now += 6 * H; state.nwsEmpty = true;
   await runtime.collectOnce();
   let data = await runtime.loadDashboard();
   assert.equal(data.sources.find(s => s.id === 'nws').status, 'stale');
   assert.equal(data.sources.find(s => s.id === 'nws').fetchedAt, INITIAL);
   assert.equal(data.snowLevels[0].feet, 2000);
-  state.now += H; state.nwsEmpty = false; state.nwsOld = true;
+  state.now += 6 * H; state.nwsEmpty = false; state.nwsOld = true;
   await runtime.collectOnce();
   data = await runtime.loadDashboard();
   assert.equal(data.sources.find(s => s.id === 'nws').fetchedAt, INITIAL);
@@ -126,7 +139,7 @@ test('NWS point Retry-After prevents a chained grid fetch using an old mapping',
   assert.equal(state.urls.filter(u => u.includes('/gridpoints/')).length, 1);
   const nws = (await runtime.loadDashboard()).sources.find(s => s.id === 'nws');
   assert.equal(nws.status, 'stale');
-  assert.equal(nws.nextAttemptAt, state.now + 2 * H);
+  assert.equal(nws.nextAttemptAt, state.now + 6 * H);
 });
 
 test('disabled observations are intentional in UI and do not hide usable overnight models', async () => {
