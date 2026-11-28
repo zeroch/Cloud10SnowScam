@@ -1,5 +1,5 @@
-import { RESORTS, MODELS } from '../../src/config.mjs';
-import { HOUR, nightWindow } from '../../src/time.mjs';
+import { RESORTS, MODELS, MORNING_RESORTS } from '../../src/config.mjs';
+import { HOUR, nightWindow, localDayStart } from '../../src/time.mjs';
 
 export const COMPARISON_NOW = Date.parse('2026-10-19T00:00:00Z');
 // The approved mockup's fictional values. Only test/preview code imports this.
@@ -39,5 +39,47 @@ export function resortComparisonUncertainFixture(now = COMPARISON_NOW) {
   entries.stevenspass.data.snowLevels.splice(0, 1,
     { ...first, end: first.start + 6 * HOUR, feet: 6000 },
     { ...first, start: first.start + 6 * HOUR });
+  return entries;
+}
+
+export const TIMELINE_NOW = Date.parse('2026-11-28T02:45Z');
+
+// Exact sample amounts and conditions from the approved comparison render.
+export function resortTimelineFixture(now = TIMELINE_NOW, overrides = {}) {
+  const amounts = [
+    [0,2,3,10,0, 0,1,0,3,2, 0,0,1,0,1],
+    [1,2,5,10,6, 0,0,2,4,2, 0,1,2,0,0],
+    [0,0,1,4,2, 0,0,0,1,1, 0,0,0,0,0],
+    [2,4,7,10,5, 2,1,2,4,3, 0,1,3,2,1],
+  ];
+  const conditions = [
+    'rww-- -w--- -rw--', 'ww--- -rw-- -----', 'rrwww -rrww --r--', 'w---- ww--- -w---',
+  ].map(sequence => sequence.replaceAll(' ', ''));
+  const entries = resortComparisonFixture(now);
+  RESORTS.forEach((resort, index) => {
+    const data = entries[resort.id].data;
+    const days = amounts[index].map((amount, day) => ({
+      start: day === 0 ? Math.ceil(now / HOUR) * HOUR : localDayStart(now, day),
+      end: localDayStart(now, day + 1), amount: overrides[resort.id]?.[day] ?? amount,
+      condition: conditions[index][day],
+    }));
+    const points = days.flatMap(({ start, end, amount, condition }) => {
+      const hours = (end - start) / HOUR;
+      return Array.from({ length: hours }, (_, hour) => ({
+        time: start + (hour + 1) * HOUR,
+        snowIn: amount / hours,
+        precipIn: amount || condition === 'r' ? .02 : 0,
+        temperatureF: condition === 'r' ? 38 : 26,
+      }));
+    });
+    data.models = MODELS.map(model => ({ ...model, points: points.map(point => ({ ...point })) }));
+    data.snowLevels = days.map(({ start, end, condition }) => ({
+      start, end, feet: condition === 'w' ? resort.snowLevelBands.wet + 100 : resort.snowLevelBands.dry - 100,
+    }));
+    data.sources.push({ id: 'nwac', status: 'cached', fetchedAt: now, refreshAfterMs: 6 * HOUR });
+    data.morning = { station: { ...MORNING_RESORTS[resort.id].station,
+      snowfall24h: index === 2 ? null : { value: [3,0,0,2][index], observedAt: now - (index === 3 ? 5.25 : .75) * HOUR },
+    } };
+  });
   return entries;
 }

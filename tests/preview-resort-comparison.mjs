@@ -1,17 +1,20 @@
 // Local visual QA only. No collection, database, or production route imports it.
 // Set /tmp/cloud10-comparison-qa.json to exercise failure, stale, remaining,
-// mixed-weather, uncertain-snow, or largeText states, then reload the preview.
+// mixed-weather, uncertain-snow, timeline, or largeText states, then reload the preview.
 import { existsSync, readFileSync } from 'node:fs';
 import { createApp } from '../server.mjs';
-import { resortComparisonFixture, resortComparisonUncertainFixture, COMPARISON_NOW } from './fixtures/resort-comparison.mjs';
+import { resortComparisonFixture, resortComparisonUncertainFixture, resortTimelineFixture, COMPARISON_NOW, TIMELINE_NOW } from './fixtures/resort-comparison.mjs';
 
 function options() {
+  if (process.env.CLOUD10_COMPARISON_QA_SCENARIO) return { scenario: process.env.CLOUD10_COMPARISON_QA_SCENARIO };
   try { return JSON.parse(readFileSync('/tmp/cloud10-comparison-qa.json', 'utf8')); }
   catch { return {}; }
 }
-const clock = () => COMPARISON_NOW + (options().scenario === 'remaining' ? 9.5 * 3_600_000 : 0);
+const clock = () => options().scenario === 'timeline' ? TIMELINE_NOW
+  : COMPARISON_NOW + (options().scenario === 'remaining' ? 9.5 * 3_600_000 : 0);
 function snapshot(resortId) {
   const { scenario } = options();
+  if (scenario === 'timeline') return resortTimelineFixture(clock())[resortId].data;
   if (scenario === 'failure' && resortId === 'summitcentral') throw new Error('Intentional comparison QA failure');
   const data = (scenario === 'uncertain-snow' ? resortComparisonUncertainFixture : resortComparisonFixture)(clock())[resortId].data;
   if (scenario === 'stale' && resortId === 'crystalmountain') data.sources[0].fetchedAt -= 3_600_000;
@@ -41,7 +44,7 @@ app.on('request', (request, response) => {
   }
   const end = response.end.bind(response);
   response.end = (body, ...args) => {
-    if (body && response.getHeader('Content-Type')?.startsWith('text/html')) {
+    if (body && options().scenario !== 'timeline' && response.getHeader('Content-Type')?.startsWith('text/html')) {
       body = body.toString().replace('<button id="compare-menu"', '<span style="margin-left:auto;margin-right:14px;font-size:12px;color:#526f86;background:#e6f4fc;border-radius:14px;padding:5px 10px">Sample data</span><button id="compare-menu"');
     }
     if (path === '/clone/resort-comparison.mjs') body = body.toString().replace('Date.now()', String(clock()));
