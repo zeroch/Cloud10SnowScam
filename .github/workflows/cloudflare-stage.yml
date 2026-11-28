@@ -1,5 +1,5 @@
-name: Release to Cloudflare
-run-name: Release ${{ inputs.version || github.event.workflow_run.head_sha }} to Cloudflare
+name: Stage Cloudflare preview
+run-name: Stage ${{ inputs.version || github.event.workflow_run.head_sha }} on Cloudflare
 on:
   workflow_run:
     workflows: [Cloud10 CI]
@@ -13,11 +13,6 @@ on:
         type: string
 
 permissions: {}
-
-# Rollback can stop this particular run, including while it is still staging.
-concurrency:
-  group: cloud10-release-run-${{ github.run_id }}
-  cancel-in-progress: false
 
 jobs:
   select:
@@ -66,9 +61,6 @@ jobs:
     environment:
       name: production
       deployment: false
-    outputs:
-      version: ${{ steps.upload.outputs.id }}
-      url: ${{ steps.upload.outputs.url }}
     permissions:
       contents: read
       actions: read
@@ -127,7 +119,6 @@ jobs:
         run: |
           echo "::notice::Staging preview: $VERSION_URL/location/crystalmountain/snow-summary?lang=zh-CN"
           echo "[Preview Crystal Mountain in Chinese]($VERSION_URL/location/crystalmountain/snow-summary?lang=zh-CN)" >> "$GITHUB_STEP_SUMMARY"
-          echo "[Roll back this release]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/cloudflare-rollback.yml) using run ID \`$GITHUB_RUN_ID\`." >> "$GITHUB_STEP_SUMMARY"
           python3 deploy/cloudflare-production/verify-live.py "$VERSION_URL" dist/cloudflare-production/manifest.json "$RUNNER_TEMP/verification.json" "$RELEASE_SHA"
       - name: Verify the staging bookmark serves this build
         if: steps.upload.outputs.staging_url != ''
@@ -142,38 +133,6 @@ jobs:
           PY
           echo "[Latest staging build]($STAGING_URL)" >> "$GITHUB_STEP_SUMMARY"
 
-  rollout:
-    name: Roll out 10%, 50%, then 100%
-    needs: [select, stage]
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    environment:
-      name: production
-      url: https://forecast.cloud10snow.com
-    concurrency:
-      group: cloud10-production
-      queue: max
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      actions: read
-    env:
-      RELEASE_SHA: ${{ needs.select.outputs.sha }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Retrieve the tested release manifest
-        env:
-          ARTIFACT_ID: ${{ needs.select.outputs.artifact_id }}
-          DIGEST: ${{ needs.select.outputs.digest }}
-          GH_TOKEN: ${{ github.token }}
-        run: bash deploy/cloudflare-production/fetch-bundle.sh
-      - name: Monitor the preview and live traffic for the 30-minute rollout
-        env:
-          VERSION_URL: ${{ needs.stage.outputs.url }}
-          VERSION_ID: ${{ needs.stage.outputs.version }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: python3 deploy/cloudflare-production/rollout.py promote
+      - name: Link the manual production procedure
+        run: |
+          echo "Staging checks passed. [Switch production traffic manually]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/docs/deployment/cloudflare-production.md#switch-production-traffic-manually)." >> "$GITHUB_STEP_SUMMARY"
