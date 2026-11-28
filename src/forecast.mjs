@@ -226,7 +226,7 @@ function datedNight(choice) {
   return finite(time) && new Date(time).toISOString().slice(0, 10) === choice ? nightWindow(time) : null;
 }
 
-function precipitationAtCaution(models, intervals, start, end, wet) {
+export function precipitationAtCaution(models, intervals, start, end, wet) {
   return models.some(model => model.points.some(p => p.time > start && p.time <= end && finite(p.precipIn) && p.precipIn > 0 &&
     intervals.some(level => finite(level.feet) && level.feet >= wet && level.start < p.time && level.end > Math.max(start, p.time - HOUR))));
 }
@@ -438,14 +438,8 @@ export function personalSnowQuality(data, night) {
   if (night.forecastState !== 'current' || amount === null || night.snow.count < 3) return unknown;
   if (night.snow.max === 0) {
     if (night.rows.some(row => row.partialTotal > 0)) return unknown;
-    const complete = new Set(night.rows.filter(row => row.complete).map(row => row.id));
-    const rainModels = data.models.filter(model => {
-      if (!complete.has(model.id)) return false;
-      const liquid = intervalTotal(model.points, night.start, night.end, 'precipIn', night.opening ? PARTIAL_HOUR : undefined);
-      if (!liquid.complete || liquid.total < .01) return false;
-      const wetHours = model.points.filter(p => p.time > night.start && p.time <= night.end && p.precipIn > 0);
-      return wetHours.length > 0 && wetHours.every(p => finite(p.temperatureF) && p.temperatureF > 32);
-    }).length;
+    const rainModels = warmLiquidForecastCount(data.models, night.rows, night.start, night.end,
+      night.opening ? PARTIAL_HOUR : undefined);
     if (rainModels >= 3 && rainModels > night.snow.count / 2) return { key: 'rain', label: t('Rain'), rainModels };
     return { key: 'poor', label: t('Poor') };
   }
@@ -456,4 +450,17 @@ export function personalSnowQuality(data, night) {
   const dryNight = history?.coverage === 'full' && history.intervals.every(p => p.feet < snowLevelBands(data.resort).wet);
   if (amount >= 5 && night.condition.key === 'dry' && dryNight) return { key: 'excellent', label: t('Excellent') };
   return { key: 'good', label: t('Good') };
+}
+
+// Count complete models with measurable precipitation and above-freezing
+// temperatures throughout the precipitating hours.
+export function warmLiquidForecastCount(models, snow, start, end, options) {
+  const complete = new Set(snow.filter(row => row.complete).map(row => row.id));
+  return models.filter(model => {
+    if (!complete.has(model.id)) return false;
+    const liquid = intervalTotal(model.points, start, end, 'precipIn', options);
+    if (!liquid.complete || liquid.total < .01) return false;
+    const wetHours = model.points.filter(p => p.time > start && p.time <= end && p.precipIn > 0);
+    return wetHours.length > 0 && wetHours.every(p => finite(p.temperatureF) && p.temperatureF > 32);
+  }).length;
 }

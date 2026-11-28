@@ -9,6 +9,10 @@ function validMorning(value) {
 // Return only to our own comparison route, never to an arbitrary supplied URL.
 export function comparisonReturnUrl(currentUrl) {
   const current = new URL(currentUrl);
+  if (current.searchParams.get('compareView') === '15d') {
+    const stage = comparisonStage(current.searchParams.get('compareStage'));
+    return COMPARISON_PATH + '?view=15d' + (stage === 1 ? '' : '&stage=' + stage) + '#live-overnight';
+  }
   const days = current.searchParams.get('compareDays');
   const night = current.searchParams.get('compareNight');
   if (!['1', '3', '5'].includes(days) || !validMorning(night)) return COMPARISON_PATH;
@@ -26,9 +30,14 @@ export function forecastDetailUrl(currentUrl, targetUrl, resortId) {
   const current = new URL(currentUrl), target = new URL(targetUrl, current);
   target.pathname = current.pathname;
   if (!current.pathname.startsWith('/location/')) target.searchParams.set('resort', resortId);
-  for (const key of ['compareDays', 'compareNight']) {
+  for (const key of ['compareDays', 'compareNight', 'compareView', 'compareStage']) {
     const value = current.searchParams.get(key);
     if (value !== null) target.searchParams.set(key, value);
   }
   return target;
+}
+
+export function comparisonStage(value) {
+  const stage = Number(value);
+  return stage === 2 || stage === 3 ? stage : 1;
 }
