@@ -2,37 +2,32 @@
 
 For AI changes, push a `codex/` branch. The Actions bot opens a PR against `main` and requests `@zeroch` for review. Merge requires one approving review, an up-to-date branch and passing **Cloud10 CI**. The check runs the Node tests, release selection tests, collector handoff checks and Wrangler checks. Each successful push build on `main` captures the Worker and browser files together for 90 days. [Agent procedure](../../AGENTS.md)
 
-## Preview and automatic rollout
+## Preview each merged PR
 
-Bookmark [staging](https://staging-cloud10-forecast.chenze62.workers.dev/) for the latest successful `main` build and [production](https://forecast.cloud10snow.com/) for the public forecast. Staging reads the live forecast database. The staging link moves when the release workflow uploads the latest build, before the production rollout.
+After a PR merges, successful push CI on `main` triggers **Stage Cloudflare preview**. GitHub uploads the tested Worker version at 0% production traffic and publishes a Version URL for that exact commit. The staging bookmark follows the latest successful `main` build. Both previews read the live forecast database. [Staging forecast](https://staging-cloud10-forecast.chenze62.workers.dev/)
 
-After push CI passes on `main`, **Actions → Release to Cloudflare → Stage and verify** uploads a version of `cloud10-forecast` at 0% production traffic. Uploads run one at a time and compare the selected Git SHA with the latest successful push build. Older releases keep their own Version URLs. The job summary links to the exact build and the Chinese Crystal Mountain page.
+Open the **Stage and verify** job summary for the Git SHA, Worker version ID, exact preview link and Chinese Crystal Mountain page. The job checks the build archive, manifest routes, release SHA, D1 health and four resort dashboards. Uploads run one at a time so a delayed older build gets its own preview and preserves the newer bookmark.
 
-GitHub checks the archive digest, every exported response, the Git SHA, D1 health and all four resort dashboards on the Version URL. A passing preview starts the rollout automatically. The percentages are shares of requests.
+To stage a retained build again, select **Actions → Stage Cloudflare preview → Run workflow** on `main`. Enter its merged PR number (for example `#42`), release tag, or full main commit SHA.
 
-| Time after the first traffic switch | New version | Previous production |
-| --- | --- | --- |
-| Start | 10% | 90% |
-| After 15 healthy minutes | 50% | 50% |
-| After another 15 healthy minutes | 100% | 0% |
+## Switch production traffic manually
 
-During each hold the job probes the exact candidate and the public health endpoint about once a minute. At 100% it verifies the public site against the same manifest. A failed check after traffic moves restores the recorded previous production version. Allow for runner startup, retries and Cloudflare propagation.
+1. Open the exact Version URL from the successful staging job for the build you want. Copy its Worker version ID. The staging bookmark may already point to a newer merge.
+2. In **Cloudflare → Workers & Pages → cloud10-forecast → Deployments**, record the version and percentage under **Active deployment**. Find the staged version by its ID and Git commit message. Open its **More options → Split versions** control to choose the share of production requests it should receive.
+3. Review the version IDs and percentages, then confirm the deployment in Cloudflare. Set the staged version to **100%** for a full switch, or apply a smaller share to try it with live traffic. Each increase requires another manual deployment.
+4. Check **Active deployment** for the applied percentages. At 100%, the public health endpoint should return the selected Git SHA in `release` and four current forecasts. [Public health](https://forecast.cloud10snow.com/api/health) · [Cloudflare traffic splits](https://developers.cloudflare.com/workers/versions-and-deployments/gradual-deployments/)
 
-GitHub queues production changes. A new merge can stage while the active rollout finishes. A delayed automatic build skips its turn if a newer commit already rolled out or was rolled back. To choose a particular retained build yourself, use **Release to Cloudflare → Run workflow** on `main` with a merged PR number such as `#42`, a release tag, or a full main commit SHA. This uses the same checks and rollout schedule.
+## Restore the previous version
 
-## Stop or roll back
+In **Deployments**, find the previously serving version you recorded. Choose **More options → Rollback**, confirm, and check that **Active deployment** shows it at 100%. To restore a previous split, choose **Split versions** and reapply its recorded percentages. D1 keeps its current forecast data. [Cloudflare rollbacks](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/)
 
-1. Open **Actions → Roll back production → Run workflow** and choose `main`.
-2. Leave the input blank to reverse the managed release currently serving traffic. To stop a specific build, including one still staging, enter its numeric **release run ID** from the staging summary or the release run URL.
-3. The workflow stops that run, checks which release owns the live traffic, and restores its actual predecessor at 100%. A stale or repeated rollback request skips the traffic change. D1 keeps its current forecast data.
-
-The baseline version ID is recorded in Cloudflare's deployment message at the first split. If a runner is lost, use the same rollback workflow. For a deployment predating this automation or if GitHub is unavailable, open **Cloudflare → Workers & Pages → cloud10-forecast → Deployments**, select the previous stable version and choose **Rollback**. A running rollout stops when it detects a different deployment. [Cloudflare rollbacks](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/)
+The GitHub **Roll back production** workflow can restore a deployment created by the former automated rollout while that deployment still owns traffic. For releases switched in the dashboard, use the Cloudflare controls above.
 
 ## Repository and Worker setup
 
 The repository has an active branch ruleset for `main`. The importable settings are in [main.json](../../.github/rulesets/main.json). The required check is **Cloud10 CI** from the GitHub Actions app and the bypass list is empty.
 
-Configure the GitHub environment **production** for the selected branch `main` only. Disable **Required reviewers** and the **Wait timer** so passing main builds can roll out automatically and emergency rollbacks can start immediately. Keep administrator bypass disabled. The Cloudflare credentials belong in this environment.
+The GitHub environment **production** holds the Worker credentials and restricts jobs to `main`. Staging uses this environment to upload a preview. Environment approval and wait timers are disabled so every successful merge can stage. Production traffic is controlled in the Cloudflare dashboard.
 
 | Kind | Name | Value |
 | --- | --- | --- |

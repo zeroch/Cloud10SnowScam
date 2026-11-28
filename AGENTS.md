@@ -9,4 +9,8 @@
 
 For an open PR already authored by `zeroch`, create a new `codex/` branch pointing to the exact head commit. Have the bot open its replacement and request `@zeroch`. Preserve the original PR's title, description and issue links. Verify the base, head SHA and changed files before closing the original. Keep the original branch and use the replacement head for subsequent commits.
 
+## Staging and production
+
+Each merged PR that passes CI on `main` gets a Cloudflare Version URL. Use the staging bookmark for the latest build and the exact Version URL to review a particular merge. The maintainer chooses the production version and traffic percentage manually in Cloudflare.
+
 [Project memory](MEMORY.md) · [Cloudflare release procedure](docs/deployment/cloudflare-production.md)
