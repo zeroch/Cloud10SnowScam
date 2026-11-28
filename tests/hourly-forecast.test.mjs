@@ -19,16 +19,19 @@ function dashboard(at = start) {
   };
 }
 
-test('ECMWF amounts end each displayed hour while wind and cloud start it', () => {
+test('ECMWF amounts end each displayed hour while temperature, wind and cloud start it', () => {
   const data = dashboard();
   const points = data.models[1].points;
   points[0].snowIn = 9;
+  points[0].temperatureF = -4.5;
+  points[1].temperatureF = 0;
   points[1].snowIn = 0.08;
   points[36].snowIn = 1.25;
   const { hours, totalSnowIn } = hourlyForecast(data, start - 31 * 60_000);
   assert.equal(hours.length, 36);
   assert.deepEqual(hours.map(h => h.time), Array.from({ length: 36 }, (_, i) => start + i * HOUR));
   assert.deepEqual(hours.slice(0, 2).map(h => [h.snowIn, h.windMph, h.cloudPct]), [[0.08, 0, 0], [0, 1, 1]]);
+  assert.deepEqual(hours.slice(0, 2).map(h => h.temperatureF), [-4.5, 0]);
   assert.equal(hours.at(-1).snowIn, 1.25);
   assert.equal(totalSnowIn, 1.33);
   assert.equal(hourlyForecast(data, start).hours[0].time, start);
@@ -38,14 +41,17 @@ test('missing coverage stays independent by field, model and source', () => {
   const data = dashboard();
   assert.equal(hourlyForecast(data, start).totalSnowIn, 0);
   data.models[1].points[1].windMph = null;
+  data.models[1].points[1].temperatureF = null;
   data.models[1].points[3].snowIn = null;
   let result = hourlyForecast(data, start);
   assert.equal(result.hours[1].windMph, null);
+  assert.equal(result.hours[1].temperatureF, null);
   assert.equal(result.hours[1].cloudPct, 1);
   assert.equal(result.hours[2].snowIn, null);
   assert.equal(result.totalSnowIn, null);
   data.models.pop();
   result = hourlyForecast(data, start);
+  assert.ok(result.hours.every(h => h.temperatureF === null));
   assert.ok(result.hours.every(h => h.snowIn === null && h.windMph === null && h.weather === 'unknown'));
   assert.deepEqual(result.hours.slice(0, 4).map(h => h.snowLevelFt), [2800, 2800, 2800, null]);
   data.snowLevels = [{ start: start + HOUR / 2, end: start + 2 * HOUR, feet: 0 }];

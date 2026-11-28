@@ -109,7 +109,7 @@
   .hourly-day[data-single] > span { padding-inline: 1px; }
 }
 @container (max-width: 550px) {
-  .hourly-card { --hourly-label-width: 72px; }
+  .hourly-card { --hourly-label-width: 84px; }
   .hourly-card > summary { padding: 12px 10px; column-gap: 9px; }
   .hourly-card h2, .hourly-total strong { font-size: 17px; }
   .hourly-range, .hourly-total small, #hourly-source, .hourly-key, .hourly-day > span { font-size: 11px; }
@@ -122,7 +122,7 @@
   .hourly-key { column-gap: 9px; }
 }
 @container (max-width: 380px) {
-  .hourly-card { --hourly-label-width: 63px; }
+  .hourly-card { --hourly-label-width: 76px; }
   .hourly-scroll :is(th[scope="row"], th[rowspan]) { padding-left: 6px; font-size: 11px; }
   .hourly-scroll thead { font-size: 11px; }
 }

@@ -57,19 +57,20 @@ export function hourlyForecast(data, now) {
   const bands = { blueMax: elevation - 2000, purpleMin: elevation - 300, purpleMax: elevation + 300 };
   const hours = Array.from({ length: HOURLY_COUNT }, (_, index) => {
     const time = start + index * HOUR;
-    // ECMWF accumulations belong to the preceding hour. Wind and sky are instantaneous.
+    // ECMWF accumulations belong to the preceding hour. Temperature, wind and sky are instantaneous.
     const ending = byTime.get(time + HOUR);
     const instant = byTime.get(time);
     const snowIn = nonnegative(ending?.snowIn);
+    const temperatureF = finite(instant?.temperatureF) ? instant.temperatureF : null;
     const cloudPct = instant?.cloudPct <= 100 ? nonnegative(instant.cloudPct) : null;
     const level = intervals.find(period => period.start <= time && period.end >= time + HOUR);
     const feet = nonnegative(level?.feet);
     // Drop meter-to-foot conversion noise before rounding a 50-ft midpoint.
     const snowLevelFt = feet === null ? null : Math.round(Number(feet.toPrecision(15)) / 100) * 100;
     return {
-      time, snowIn, cloudPct, snowLevelFt, levelBand: levelBand(feet, bands),
+      time, temperatureF, snowIn, cloudPct, snowLevelFt, levelBand: levelBand(feet, bands),
       windMph: nonnegative(instant?.windMph),
-      weather: hourlyWeather(snowIn, nonnegative(ending?.precipIn), cloudPct, instant?.temperatureF, time, data.resort),
+      weather: hourlyWeather(snowIn, nonnegative(ending?.precipIn), cloudPct, temperatureF, time, data.resort),
     };
   });
   const totalSnowIn = intervalTotal(points, start, end, 'snowIn').total;

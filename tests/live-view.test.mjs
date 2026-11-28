@@ -46,6 +46,23 @@ test('hourly card groups dates at local midnight, including both daylight-saving
   }
 });
 
+test('hourly temperatures use the page unit and keep zero, negative and missing values distinct', ctx => {
+  ctx.after(() => { setDisplayUnits({}); setDisplayLanguage('en'); });
+  const points = [-4, 0, 31.8, 32, 32.4, null].map((temperatureF, i) => ({ time: now + i * H, temperatureF }));
+  const snapshot = { resort: RESORT, models: [{ id: 'ecmwf_ifs025', points }] };
+  function values(label, unit) {
+    const row = renderHourlyForecast(snapshot, { now }).split('</tr>').find(row => row.includes(label + '<small>' + unit + '</small>'));
+    assert.ok(row, `Missing ${label} row in ${unit}`);
+    const cells = [...row.matchAll(/<td[^>]*>([^<]+)<\/td>/g)].map(match => match[1]);
+    assert.equal(cells.length, 36);
+    return cells.slice(0, 7);
+  }
+  assert.deepEqual(values('Temperature', '°F'), ['-4', '0', '32', '32', '32', '—', '—']);
+  setDisplayUnits({ temperature: 'C' });
+  setDisplayLanguage('zh-CN', chinese);
+  assert.deepEqual(values('气温', '°C'), ['-20', '-18', '0', '0', '0', '—', '—']);
+});
+
 test('hourly snow-level cells and tooltips round to 100 ft while colors use the source level', () => {
   // 868.68 meters is exactly 2,850 ft in the NWS feed.
   const feet = [3287, 2768, 2801, 2849.75, 868.68 * (1 / 0.3048), 5100, 5101, 0];

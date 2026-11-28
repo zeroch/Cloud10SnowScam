@@ -102,6 +102,9 @@ export function renderHourlyForecast(data, state) {
         </tr><tr>${headers.map(h => `<th scope="col" class="hourly-hour${h.beginsDay ? ' hourly-midnight' : ''}" aria-label="${h.full}"><time datetime="${new Date(h.time).toISOString()}" title="${h.full}">${h.text}</time></th>`).join('')}</tr></thead>
         <tbody>
           ${row('Weather', '', h => ({ value: weatherIcon(h.weather) }))}
+          ${row('Temperature', weatherUnit('°F'), h => ({
+            value: h.temperatureF === null ? '—' : Math.round(convertWeather(h.temperatureF, '°F')),
+          }))}
           ${row('Snowfall', depthUnit, h => ({ value: snow(h.snowIn) }))}
           ${row('Snow level', t('ft'), levelCell)}
           ${row('Wind', t('mph'), h => ({ value: number(h.windMph, 1) }))}
